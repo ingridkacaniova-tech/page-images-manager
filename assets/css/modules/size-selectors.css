@@ -1,0 +1,121 @@
+/**
+ * Size Selectors Module
+ * Radio buttons for thumbnail size selection per source
+ * 
+ * ✅ TODO 28 FIXED: Checked radiobutton background = Reload Image button color (#2271b1)
+ * ✅ TODO 30 FIXED: Vertical centering, Non-Standard same style as others
+ */
+
+/* ============================================ */
+/* SIZE SELECTOR CONTAINER */
+/* ============================================ */
+
+.pim-size-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-content: start;
+}
+
+/* ============================================ */
+/* SOURCE GROUP */
+/* ============================================ */
+
+.pim-source-group {
+    border: 1px solid #ddd;
+    padding: 8px;
+    border-radius: 3px;
+    background: white;
+}
+
+.pim-source-name {
+    margin: 0 0 6px 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: #2271b1;
+}
+
+/* ============================================ */
+/* RADIO BUTTONS GRID */
+/* ============================================ */
+
+.pim-size-radios {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 6px !important;
+    width: 100%;
+}
+
+/* ✅ Vertical centering WITHOUT increasing height */
+.pim-size-radios label {
+    display: flex !important;
+    align-items: center;  /* ✅ Vertical centering */
+    padding: 4px 6px;     /* ✅ Original padding */
+    background: #f9f9f9;
+    border: 1px solid #e0e0e0;
+    border-radius: 3px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    margin: 0 !important;
+}
+
+.pim-size-radios label:hover {
+    background: #f0f0f1;
+    border-color: #2271b1;
+}
+
+/* ✅ TODO 28: Checked radiobutton = Reload Image button color */
+.pim-size-radios input[type="radio"]:checked + .size-name {
+    font-weight: 700;
+}
+
+.pim-size-radios label:has(input[type="radio"]:checked) {
+    background: #2271b1 !important;
+    border-color: #2271b1 !important;
+    color: white !important;
+}
+
+.pim-size-radios label:has(input[type="radio"]:checked) .size-name {
+    color: white !important;
+}
+
+.pim-size-radios label:has(input[type="radio"]:checked) .size-dimensions {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.pim-size-radios label:has(input[type="radio"]:checked):hover {
+    background: #135e96 !important;
+    border-color: #135e96 !important;
+}
+
+.pim-size-radios input[type="radio"] {
+    margin-right: 6px;
+    flex-shrink: 0;
+}
+
+/* ============================================ */
+/* SIZE LABELS */
+/* ============================================ */
+
+.pim-size-radios .size-name {
+    font-weight: 600;
+}
+
+.pim-size-radios .size-dimensions {
+    font-size: 11px;
+    color: #666;
+    margin-left: 3px;
+}
+
+/* ============================================ */
+/* NON-STANDARD OPTION - ✅ SAME style as others */
+/* ============================================ */
+
+.pim-size-radios label:has(input[value="non-standard"]) {
+    /* ✅ NO special styling - exactly like other buttons */
+    grid-column: 1 / -1 !important;  /* Only keep full width */
+    /* All other styles inherited from .pim-size-radios label */
+}
+
+/* Non-Standard checked state inherits from parent .pim-size-radios label:has(input[type="radio"]:checked) */

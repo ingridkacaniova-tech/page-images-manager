@@ -1,0 +1,129 @@
+/**
+ * Collapsible Sections Module
+ * Expandable/collapsible UI sections with localStorage persistence
+ */
+
+/* ============================================ */
+/* COLLAPSIBLE SECTION BASE */
+/* ============================================ */
+
+.pim-collapsible-section {
+    background: white;
+    border: 1px solid #ccd0d4;
+    margin: 15px 0;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+}
+
+/* ============================================ */
+/* SECTION HEADER (WRAPPER) */
+/* ============================================ */
+
+.pim-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    border-bottom: 1px solid #ccd0d4; /* ✅ Border len raz na wrapper */
+    background: #f9f9f9;
+}
+
+/* ============================================ */
+/* SECTION TOGGLE (LEFT SIDE) */
+/* ============================================ */
+
+.pim-section-toggle {
+    margin: 0;
+    padding: 15px 20px;
+    background: transparent; /* ✅ Transparent - wrapper má background */
+    border-bottom: none; /* ❌ Removed - wrapper má border */
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+
+.pim-section-toggle:hover {
+    background: rgba(0,0,0,0.05); /* ✅ Subtle hover */
+}
+
+.pim-section-toggle .dashicons {
+    transition: transform 0.3s;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+}
+
+.pim-section-toggle.collapsed .dashicons {
+    transform: rotate(-90deg);
+}
+
+/* ============================================ */
+/* SECTION ACTIONS (RIGHT SIDE BUTTONS) */
+/* ============================================ */
+
+.pim-section-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 12px;
+    background: transparent; /* ✅ Transparent */
+    border-bottom: none; /* ❌ Removed */
+}
+
+/* ============================================ */
+/* NAVIGATION ARROWS */
+/* ============================================ */
+
+.pim-section-nav {
+    min-width: 32px !important;
+    max-width: 32px !important;
+    height: 32px !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: #ffffff !important;
+    border: 1px solid #ccd0d4 !important;
+    vertical-align: middle !important;
+}
+
+.pim-section-nav:hover {
+    background: #f0f0f1 !important;
+    border-color: #2271b1 !important;
+}
+
+.pim-section-nav .dashicons {
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 16px !important;
+    width: 16px !important;
+    height: 16px !important;
+    line-height: 1 !important;
+}
+
+
+/* ============================================ */
+/* SHOW DEBUG LOG BUTTON */
+/* ============================================ */
+
+.pim-show-debug-log {
+    font-size: 13px !important;
+    height: 32px !important;
+    padding: 0 12px !important;
+    white-space: nowrap;
+}
+
+/* ============================================ */
+/* SECTION CONTENT */
+/* ============================================ */
+
+.pim-section-content {
+    padding: 20px;
+}
+
+.pim-section-content.collapsed {
+    display: none;
+}

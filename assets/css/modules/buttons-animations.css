@@ -1,0 +1,67 @@
+/**
+ * Buttons & Animations Module
+ * Button styles, animations, and interactive effects
+ */
+
+/* ============================================ */
+/* PULSE ANIMATION */
+/* ============================================ */
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.7);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 0 10px rgba(33, 150, 243, 0);
+    }
+}
+
+.pim-pulse {
+    animation: pulse 2s infinite;
+}
+
+/* ============================================ */
+/* FIX ID BUTTON */
+/* ============================================ */
+
+.pim-fix-id-btn {
+    background: #fff3cd !important;
+    border-color: #ff9800 !important;
+    color: #8a6d3b !important;
+    font-weight: 600 !important;
+    box-shadow: 0 2px 4px rgba(255, 152, 0, 0.2) !important;
+}
+
+.pim-fix-id-btn:hover {
+    background: #ffe5a0 !important;
+    border-color: #f57c00 !important;
+    color: #6d5528 !important;
+    box-shadow: 0 3px 6px rgba(255, 152, 0, 0.3) !important;
+}
+
+.pim-fix-id-btn:focus {
+    box-shadow: 0 0 0 1px #fff, 0 0 0 3px #ff9800 !important;
+}
+
+/* ============================================ */
+/* POINTER ANIMATION */
+/* ============================================ */
+
+@keyframes pointRight {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    50% {
+        transform: translateX(5px);
+    }
+}
+
+.pim-upload-hint .arrow,
+.pim-create-hint .arrow {
+    display: inline;
+    margin-left: 3px;
+    font-size: 16px;
+    animation: pointRight 1s ease-in-out infinite;
+}

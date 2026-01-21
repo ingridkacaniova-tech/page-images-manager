@@ -1,0 +1,139 @@
+/**
+ * Locked State Module
+ * ✅ ISSUE 24 FIXED: Lock icon EXACTLY in bottom-right corner, overlapping borders
+ * ✅ TODO 30 FIXED: Correct golden styling, 1px border, vertical centering
+ */
+
+/* ============================================ */
+/* SOURCE GROUP - každá skupina má vlastnú ikonku */
+/* ============================================ */
+
+.pim-source-group {
+    position: relative;
+    margin-top: 8px;
+    padding: 10px 20px 20px 20px;
+}
+
+/* 🔓 Default unlocked icon - OVERLAP bottom-right corner */
+.pim-source-group::after {
+    content: "";
+    position: absolute;
+    bottom: -10px;   /* ✅ OVERLAP - half outside */
+    right: -10px;    /* ✅ OVERLAP - half outside */
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    opacity: 0.5;
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 10;
+    background-image: url('../../images/lock-unlocked.svg');
+    background-size: contain;
+    background-repeat: no-repeat;
+}
+
+.pim-source-group::after:hover {
+    opacity: 1;
+    transform: scale(1.3);
+}
+
+/* ============================================ */
+/* LOCKED STATE - 🔒 golden styling */
+/* ============================================ */
+
+.pim-source-group.locked {
+    background: #fffbf0 !important;
+    border: 1px solid #ffc107 !important;  /* ✅ 1px not 2px */
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(255, 193, 7, 0.25);
+}
+
+/* 🔒 Locked icon - OVERLAP bottom-right corner */
+.pim-source-group.locked::after {
+    width: 22px;
+    height: 22px;
+    opacity: 0.8;
+    background-image: url('../../images/lock-locked.svg');
+    bottom: -11px;  /* ✅ OVERLAP - half outside */
+    right: -11px;   /* ✅ OVERLAP - half outside */
+    filter: drop-shadow(0 1px 2px rgba(255, 193, 7, 0.3));
+}
+
+.pim-source-group.locked::after:hover {
+    opacity: 1;
+    transform: scale(1.35);
+    filter: drop-shadow(0 2px 4px rgba(255, 193, 7, 0.5));
+}
+
+/* ============================================ */
+/* LOCKED STATE - Radio buttons styling */
+/* ============================================ */
+
+/* All labels in locked group - ✅ Correct colors */
+.pim-source-group.locked .pim-size-radios label {
+    background: #fffbf0 !important;
+    border: 1px solid #ffd159 !important;  /* ✅ #ffd159 border */
+}
+
+.pim-source-group.locked .pim-size-radios label:hover {
+    background: #fff9e6 !important;
+    border-color: #ffb300 !important;
+}
+
+/* Checked radiobutton in locked group */
+.pim-source-group.locked .pim-size-radios label:has(input[type="radio"]:checked) {
+    background: #ffc107 !important;
+    border-color: #ffc107 !important;
+    color: #333 !important;  /* ✅ Keep original dark text */
+    font-weight: 700;
+}
+
+/* ✅ DON'T change text color in checked locked state */
+.pim-source-group.locked .pim-size-radios label:has(input[type="radio"]:checked) .size-name {
+    color: #333 !important;  /* ✅ Original color */
+}
+
+.pim-source-group.locked .pim-size-radios label:has(input[type="radio"]:checked) .size-dimensions {
+    color: #666 !important;  /* ✅ Original color */
+}
+
+.pim-source-group.locked .pim-size-radios label:has(input[type="radio"]:checked):hover {
+    background: #ffb300 !important;
+    border-color: #ff9800 !important;
+}
+
+/* ============================================ */
+/* ANIMATIONS */
+/* ============================================ */
+
+/* Pulse animation when just locked */
+@keyframes lockPulse {
+    0%, 100% {
+        box-shadow: 0 2px 8px rgba(255, 193, 7, 0.25);
+    }
+    50% {
+        box-shadow: 0 4px 16px rgba(255, 193, 7, 0.6);
+    }
+}
+
+.pim-source-group.just-locked {
+    animation: lockPulse 0.6s ease-in-out;
+}
+
+/* Icon swap animation */
+@keyframes iconSwap {
+    0% {
+        transform: scale(1) rotate(0deg);
+    }
+    50% {
+        transform: scale(1.4) rotate(180deg);
+        opacity: 0.3;
+    }
+    100% {
+        transform: scale(1) rotate(360deg);
+        opacity: 0.8;
+    }
+}
+
+.pim-source-group.icon-changing::after {
+    animation: iconSwap 0.5s ease-in-out;
+}

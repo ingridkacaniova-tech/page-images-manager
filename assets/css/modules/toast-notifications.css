@@ -1,0 +1,147 @@
+/**
+ * Toast Notifications Module
+ * Lightweight toast system for non-blocking notifications
+ */
+
+/* ============================================ */
+/* CONTAINER */
+/* ============================================ */
+
+#pim-toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 999999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+}
+
+/* ============================================ */
+/* TOAST BASE */
+/* ============================================ */
+
+.pim-toast {
+    min-width: 320px;
+    max-width: 450px;
+    background: white;
+    padding: 16px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transform: translateX(450px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: auto;
+    cursor: pointer;
+    position: relative;
+}
+
+.pim-toast.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.pim-toast:hover {
+    box-shadow: 0 6px 16px rgba(0,0,0,0.2), 0 3px 6px rgba(0,0,0,0.15);
+}
+
+/* ============================================ */
+/* TOAST TYPES */
+/* ============================================ */
+
+.pim-toast-success {
+    border-left: 4px solid #00a32a;
+    background: linear-gradient(to right, #d4edda 0%, #ffffff 100%);
+}
+
+.pim-toast-error {
+    border-left: 4px solid #d63638;
+    background: linear-gradient(to right, #f8d7da 0%, #ffffff 100%);
+}
+
+.pim-toast-warning {
+    border-left: 4px solid #ff9800;
+    background: linear-gradient(to right, #fff3cd 0%, #ffffff 100%);
+}
+
+.pim-toast-info {
+    border-left: 4px solid #2271b1;
+    background: linear-gradient(to right, #e7f3ff 0%, #ffffff 100%);
+}
+
+.pim-toast-loading {
+    border-left: 4px solid #646970;
+    background: linear-gradient(to right, #f0f0f1 0%, #ffffff 100%);
+}
+
+/* ============================================ */
+/* TOAST ICON */
+/* ============================================ */
+
+.pim-toast-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.pim-toast-loading .pim-toast-icon {
+    animation: pim-toast-spin 1s linear infinite;
+}
+
+@keyframes pim-toast-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* ============================================ */
+/* TOAST MESSAGE */
+/* ============================================ */
+
+.pim-toast-message {
+    flex: 1;
+    font-size: 14px;
+    color: #1d2327;
+    line-height: 1.5;
+    font-weight: 500;
+}
+
+/* ============================================ */
+/* CLOSE BUTTON */
+/* ============================================ */
+
+.pim-toast-close {
+    font-size: 24px;
+    color: #646970;
+    cursor: pointer;
+    flex-shrink: 0;
+    line-height: 1;
+    padding: 0 4px;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.pim-toast-close:hover {
+    opacity: 1;
+    color: #1d2327;
+}
+
+/* ============================================ */
+/* MOBILE RESPONSIVE */
+/* ============================================ */
+
+@media (max-width: 600px) {
+    #pim-toast-container {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+    }
+    
+    .pim-toast {
+        min-width: auto;
+        max-width: none;
+    }
+}

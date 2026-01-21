@@ -1,0 +1,82 @@
+/**
+ * Page Images Manager - Main Styles
+ * 
+ * This is the main entry point for all styles.
+ * Module-specific styles are loaded via separate CSS files.
+ * 
+ * Modules:
+ * - toast-notifications.css - Toast notification system
+ * - collapsible-sections.css - Expandable/collapsible sections
+ * - image-grid.css - Image rows and thumbnails
+ * - size-selectors.css - Radio button size selection
+ * - buttons-animations.css - Buttons and animations
+ */
+
+/* ============================================ */
+/* BASE CONTAINER & LAYOUT */
+/* ============================================ */
+
+.pim-container {
+    max-width: 1600px;
+    margin: 20px 0;
+}
+
+.pim-section {
+    background: white;
+    padding: 20px;
+    margin: 20px 0;
+    border: 1px solid #ccd0d4;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+}
+
+/* ============================================ */
+/* PAGE SELECTOR */
+/* ============================================ */
+
+.pim-select {
+    width: 400px;
+    height: 40px;
+    font-size: 14px;
+}
+
+/* ============================================ */
+/* PROGRESS BAR */
+/* ============================================ */
+
+.pim-progress {
+    width: 100%;
+    height: 30px;
+    background: #f0f0f1;
+    border: 1px solid #c3c4c7;
+    margin-top: 10px;
+    position: relative;
+}
+
+.pim-progress-bar {
+    height: 100%;
+    background: #2271b1;
+    transition: width 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+}
+
+/* ============================================ */
+/* BOTTOM ACTIONS */
+/* ============================================ */
+
+.pim-actions {
+    margin-top: 20px;
+    padding: 20px;
+    background: #f0f0f1;
+    border: 1px solid #c3c4c7;
+    text-align: center;
+}
+
+#generate-status {
+    display: block;
+    margin-top: 10px;
+    font-weight: bold;
+}

@@ -1,0 +1,388 @@
+/**
+ * Duplicate Handling Module - Enhanced Styles
+ * ✅ TODO 50/51: Styles for enhanced dialog and ghost buttons
+ */
+
+/* ============================================ */
+/* GHOST DELETE DIALOG */
+/* ============================================ */
+
+.pim-delete-ghost-popup {
+    max-width: 500px;
+}
+
+.pim-delete-ghost-popup h2 {
+    color: #d63638;
+}
+
+.pim-ghost-id-list {
+    margin: 15px 0 15px 20px;
+    padding: 10px;
+    background: #f0f0f1;
+    border-radius: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.pim-ghost-id-list li {
+    margin: 5px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    color: #666;
+}
+
+.pim-warning-box {
+    background: #fef0f0;
+    border-left: 4px solid #d63638;
+    padding: 12px;
+    margin: 15px 0;
+    border-radius: 4px;
+}
+
+.pim-warning-box p {
+    margin: 0;
+    color: #721c24;
+    font-size: 13px;
+}
+
+/* ============================================ */
+/* GHOST DELETE BUTTON */
+/* ============================================ */
+
+.delete-ghost-btn {
+    margin-left: 8px !important;
+    background: #fef0f0 !important;
+    border: 1px solid #d63638 !important;
+    color: #d63638 !important;
+    font-weight: 600 !important;
+}
+
+.delete-ghost-btn:hover {
+    background: #fdd !important;
+    border-color: #b32d2e !important;
+    color: #b32d2e !important;
+}
+
+.delete-ghost-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ============================================ */
+/* ENHANCED POPUP OVERLAY */
+/* ============================================ */
+
+.pim-popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* ============================================ */
+/* ENHANCED POPUP CONTENT */
+/* ============================================ */
+
+.pim-link-popup-enhanced {
+    background: white;
+    padding: 25px;
+    border-radius: 8px;
+    max-width: 900px;
+    max-height: 85vh;  /* ✅ Max 85% viewport height */
+    overflow-y: auto;  /* ✅ Scrollable */
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.3s ease-in-out;
+}
+
+@keyframes slideUp {
+    from { 
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to { 
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.pim-link-popup-enhanced h2 {
+    margin: 0 0 8px 0;  /* ✅ Menší margin */
+    color: #2271b1;
+    font-size: 20px;  /* ✅ Menší font */
+    position: sticky;  /* ✅ Sticky header */
+    top: 0;
+    background: white;
+    z-index: 10;
+    padding-bottom: 8px;
+}
+
+.pim-popup-subtitle {
+    margin: 0 0 15px 0;  /* ✅ Menší margin */
+    color: #666;
+    font-size: 13px;  /* ✅ Menší font */
+}
+
+.pim-popup-subtitle strong {
+    color: #333;
+}
+
+.pim-link-popup-enhanced h3 {
+    margin: 15px 0 8px 0;  /* ✅ Menšie marginy */
+    color: #1d2327;
+    font-size: 14px;  /* ✅ Menší font */
+    border-bottom: 2px solid #2271b1;
+    padding-bottom: 4px;
+}
+
+/* ============================================ */
+/* DUPLICATE DETAILS TABLE */
+/* ============================================ */
+
+.pim-duplicate-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0 15px 0;  /* ✅ Menšie marginy */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    font-size: 12px;  /* ✅ Menší font */
+}
+
+.pim-duplicate-table thead {
+    background: #f0f0f1;
+    position: sticky;  /* ✅ Sticky header pri scrolle */
+    top: 50px;  /* ✅ Pod main header */
+    z-index: 5;
+}
+
+.pim-duplicate-table th {
+    padding: 8px;  /* ✅ Menší padding */
+    text-align: left;
+    font-weight: 600;
+    color: #1d2327;
+    border-bottom: 2px solid #2271b1;
+    font-size: 12px;  /* ✅ Menší font */
+}
+
+.pim-duplicate-table td {
+    padding: 8px;  /* ✅ Menší padding */
+    border-bottom: 1px solid #ddd;
+    font-size: 12px;  /* ✅ Menší font */
+    vertical-align: middle;
+}
+
+.pim-duplicate-table tbody tr:hover {
+    background: #f9f9f9;
+}
+
+.pim-duplicate-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* ============================================ */
+/* SOURCE DROPDOWN */
+/* ============================================ */
+
+.pim-source-select {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #8c8f94;
+    border-radius: 4px;
+    font-size: 13px;
+    background: white;
+    cursor: pointer;
+}
+
+.pim-source-select:focus {
+    border-color: #2271b1;
+    outline: none;
+    box-shadow: 0 0 0 1px #2271b1;
+}
+
+.pim-source-select option[value="__custom__"] {
+    background: #e7f3ff;
+    color: #2271b1;
+    font-weight: 600;
+}
+
+/* ============================================ */
+/* GHOST FILES WARNING */
+/* ============================================ */
+
+.pim-ghost-warning {
+    background: #fff8e1;
+    border: 2px solid #ffc107;
+    border-radius: 4px;
+    padding: 12px;  /* ✅ Menší padding */
+    margin: 15px 0;  /* ✅ Menšie marginy */
+}
+
+.pim-ghost-warning p {
+    margin: 0 0 8px 0;  /* ✅ Menší margin */
+    color: #8a6d3b;
+    font-size: 13px;  /* ✅ Menší font */
+}
+
+.pim-ghost-list {
+    margin: 8px 0 0 20px;  /* ✅ Menšie marginy */
+    padding: 0;
+    list-style: disc;
+    max-height: 100px;  /* ✅ Max výška pre zoznam */
+    overflow-y: auto;  /* ✅ Scrollable */
+}
+
+.pim-ghost-list li {
+    margin: 3px 0;  /* ✅ Menšie margins */
+    color: #666;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;  /* ✅ Menší font */
+}
+
+/* ============================================ */
+/* RESULT INFO */
+/* ============================================ */
+
+.pim-result-info {
+    background: #e7f3ff;
+    border-left: 4px solid #2196F3;
+    padding: 12px;  /* ✅ Menší padding */
+    margin: 15px 0;  /* ✅ Menšie marginy */
+    border-radius: 4px;
+}
+
+.pim-result-info p {
+    margin: 0 0 8px 0;  /* ✅ Menší margin */
+    font-size: 12px;  /* ✅ Menší font */
+    color: #1d2327;
+}
+
+.pim-result-info p:last-child {
+    margin-bottom: 0;
+}
+
+.pim-result-info ul {
+    margin: 8px 0 0 20px;  /* ✅ Menšie marginy */
+    padding: 0;
+    list-style: none;
+    max-height: 120px;  /* ✅ Max výška */
+    overflow-y: auto;  /* ✅ Scrollable */
+}
+
+.pim-result-info li {
+    margin: 4px 0;  /* ✅ Menší margin */
+    font-size: 12px;  /* ✅ Menší font */
+    color: #666;
+    padding: 4px;  /* ✅ Menší padding */
+    background: white;
+    border-radius: 3px;
+}
+
+.pim-result-info li strong {
+    color: #2271b1;
+}
+
+/* ============================================ */
+/* POPUP ACTIONS */
+/* ============================================ */
+
+.pim-popup-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 15px;  /* ✅ Menší margin */
+    padding-top: 15px;  /* ✅ Menší padding */
+    border-top: 1px solid #ddd;
+    position: sticky;  /* ✅ Sticky buttons */
+    bottom: 0;
+    background: white;
+    z-index: 10;
+}
+
+.pim-popup-actions .button {
+    padding: 6px 16px;  /* ✅ Menší padding */
+    font-size: 13px;  /* ✅ Menší font */
+    height: auto;
+}
+
+/* ============================================ */
+/* RESPONSIVE */
+/* ============================================ */
+
+@media (max-width: 768px) {
+    .pim-link-popup-enhanced {
+        max-width: 95%;
+        padding: 20px;
+    }
+    
+    .pim-duplicate-table {
+        font-size: 11px;
+    }
+    
+    .pim-duplicate-table th,
+    .pim-duplicate-table td {
+        padding: 8px;
+    }
+}
+
+/* ============================================ */
+/* CUSTOM SOURCE DIALOG */
+/* ============================================ */
+
+.pim-custom-source-popup {
+    max-width: 450px;
+}
+
+.pim-custom-source-input {
+    width: 100%;
+    padding: 10px;
+    font-size: 14px;
+    border: 1px solid #8c8f94;
+    border-radius: 4px;
+    margin: 10px 0;
+    font-family: 'Courier New', monospace;
+}
+
+.pim-custom-source-input:focus {
+    border-color: #2271b1;
+    outline: none;
+    box-shadow: 0 0 0 1px #2271b1;
+}
+
+.pim-input-hint {
+    font-size: 12px;
+    color: #666;
+    margin: 5px 0 15px 0;
+    font-style: italic;
+}
+
+/* ============================================ */
+/* SCROLLBAR STYLING */
+/* ============================================ */
+
+.pim-link-popup-enhanced::-webkit-scrollbar {
+    width: 8px;
+}
+
+.pim-link-popup-enhanced::-webkit-scrollbar-track {
+    background: #f0f0f1;
+    border-radius: 4px;
+}
+
+.pim-link-popup-enhanced::-webkit-scrollbar-thumb {
+    background: #8c8f94;
+    border-radius: 4px;
+}
+
+.pim-link-popup-enhanced::-webkit-scrollbar-thumb:hover {
+    background: #646970;
+}

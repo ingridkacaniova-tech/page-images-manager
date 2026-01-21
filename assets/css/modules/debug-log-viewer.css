@@ -1,0 +1,241 @@
+/**
+ * Debug Log Viewer CSS
+ * Styling for debug log viewer interface
+ */
+
+/* ============================================ */
+/* CONTAINER */
+/* ============================================ */
+
+.pim-debug-log-viewer {
+    margin-top: 40px;
+    background: white;
+    padding: 20px;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.pim-debug-log-viewer h2 {
+    margin: 0 0 20px 0;
+    color: #1d2327;
+}
+
+/* ============================================ */
+/* CONTROLS */
+/* ============================================ */
+
+.pim-debug-controls {
+    margin-bottom: 20px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.pim-filter-input {
+    padding: 8px 12px;
+    border: 1px solid #8c8f94;
+    border-radius: 4px;
+    min-width: 400px;
+    font-size: 14px;
+}
+
+.pim-last-session-btn {
+    background: #00a32a !important;
+    border-color: #00a32a !important;
+}
+
+.pim-clear-log-btn {
+    color: #d63638 !important;
+}
+
+/* ============================================ */
+/* STATISTICS DASHBOARD */
+/* ============================================ */
+
+.pim-debug-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.pim-stat-box {
+    background: #f6f7f7;
+    padding: 12px;
+    border-radius: 4px;
+    border-left: 4px solid #2271b1;
+}
+
+.pim-stat-label {
+    font-size: 11px;
+    color: #646970;
+    margin-bottom: 3px;
+}
+
+.pim-stat-value {
+    font-size: 20px;
+    font-weight: bold;
+    color: #1d2327;
+}
+
+.pim-stat-sublabel {
+    font-size: 10px;
+    color: #999;
+    margin-top: 2px;
+}
+
+/* Stat box variants */
+.pim-stat-total {
+    border-left-color: #2271b1;
+}
+
+.pim-stat-preselecting {
+    background: #d4edda;
+    border-left-color: #00a32a;
+}
+
+.pim-stat-preselecting .pim-stat-label {
+    color: #155724;
+}
+
+.pim-stat-preselecting .pim-stat-value {
+    color: #00a32a;
+}
+
+.pim-stat-semantic {
+    background: #d1ecf1;
+    border-left-color: #0c5460;
+}
+
+.pim-stat-semantic .pim-stat-label {
+    color: #0c5460;
+}
+
+.pim-stat-semantic .pim-stat-value {
+    color: #0c5460;
+}
+
+.pim-stat-success {
+    background: #d4edda;
+    border-left-color: #28a745;
+}
+
+.pim-stat-success .pim-stat-label {
+    color: #155724;
+}
+
+.pim-stat-success .pim-stat-value {
+    color: #28a745;
+}
+
+.pim-stat-errors {
+    background: #f8d7da;
+    border-left-color: #d63638;
+}
+
+.pim-stat-errors .pim-stat-label {
+    color: #721c24;
+}
+
+.pim-stat-errors .pim-stat-value {
+    color: #d63638;
+}
+
+.pim-stat-images {
+    background: #f6f7f7;
+    border-left-color: #2271b1;
+}
+
+/* ============================================ */
+/* QUICK FILTERS */
+/* ============================================ */
+
+.pim-debug-quick-filters {
+    margin-bottom: 15px;
+    padding: 12px;
+    background: #f0f0f1;
+    border-radius: 4px;
+}
+
+.pim-debug-quick-filters strong {
+    margin-right: 10px;
+}
+
+.pim-debug-quick-filters .button {
+    margin: 2px;
+}
+
+/* ============================================ */
+/* FILTER RESULTS INFO */
+/* ============================================ */
+
+.pim-debug-filter-results {
+    background: #e7f3ff;
+    border-left: 4px solid #2196F3;
+    padding: 12px;
+    margin-bottom: 15px;
+}
+
+/* ============================================ */
+/* LOG CONTENT */
+/* ============================================ */
+
+.pim-debug-log-content {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    padding: 20px;
+    border-radius: 4px;
+    overflow-x: auto;
+    font-family: 'Courier New', Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+/* ============================================ */
+/* LOG LINES */
+/* ============================================ */
+
+.pim-log-line {
+    margin: 2px 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.pim-log-success {
+    color: #4ec9b0;
+}
+
+.pim-log-error {
+    color: #f48771;
+}
+
+.pim-log-warning {
+    color: #dcdcaa;
+}
+
+.pim-log-info {
+    color: #9cdcfe;
+}
+
+/* ============================================ */
+/* SYNTAX HIGHLIGHTING */
+/* ============================================ */
+
+.pim-highlight-preselecting {
+    background: #2d5016;
+    color: #4ec9b0;
+    font-weight: bold;
+    padding: 2px 4px;
+    border-radius: 2px;
+}
+
+.pim-highlight-semantic {
+    background: #1e3a5f;
+    color: #9cdcfe;
+    font-weight: bold;
+    padding: 2px 4px;
+    border-radius: 2px;
+}
