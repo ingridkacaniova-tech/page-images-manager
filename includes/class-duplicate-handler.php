@@ -128,8 +128,8 @@ class PIM_Duplicate_Handler {
         return $this->ghost_handler->find_ghost_duplicates($primary_id, $duplicate_ids, $page_id);
     }
     
-    public function get_duplicate_details($duplicate_id) {
-        return $this->ghost_handler->get_duplicate_details($duplicate_id);
+    public function get_duplicate_details($duplicate_id, $primary_id = 0, $page_id = 0) {
+        return $this->ghost_handler->get_duplicate_details($duplicate_id, $primary_id, $page_id);
     }
     
     public function delete_ghost_duplicates($ghost_ids) {

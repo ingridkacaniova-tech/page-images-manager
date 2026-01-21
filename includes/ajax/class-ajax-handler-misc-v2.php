@@ -70,6 +70,8 @@ class PIM_Ajax_Handler_Misc {
         check_ajax_referer('page_images_manager', 'nonce');
         
         $duplicate_ids = isset($_POST['duplicate_ids']) ? json_decode(stripslashes($_POST['duplicate_ids']), true) : array();
+        $primary_id = isset($_POST['primary_id']) ? intval($_POST['primary_id']) : 0;  // ✅ PRIDANÉ
+        $page_id = isset($_POST['page_id']) ? intval($_POST['page_id']) : 0;            // ✅ PRIDANÉ
         
         if (empty($duplicate_ids)) {
             wp_send_json_error('Missing duplicate IDs');
@@ -77,7 +79,7 @@ class PIM_Ajax_Handler_Misc {
         
         $details = array();
         foreach ($duplicate_ids as $dup_id) {
-            $details[] = $this->duplicate_handler->get_duplicate_details($dup_id);
+            $details[] = $this->duplicate_handler->get_duplicate_details($dup_id, $primary_id, $page_id);  // ✅ PRIDANÉ PARAMETRE
         }
         
         wp_send_json_success(array(

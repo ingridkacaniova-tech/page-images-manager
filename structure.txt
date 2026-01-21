@@ -1,0 +1,58 @@
+.
+├── assets
+│   ├── css
+│   │   ├── admin.css
+│   │   └── modules
+│   │       ├── buttons-animations.css
+│   │       ├── collapsible-sections.css
+│   │       ├── debug-log-viewer.css
+│   │       ├── duplicate-handling.css
+│   │       ├── image-grid.css
+│   │       ├── locked-state.css
+│   │       ├── size-selectors.css
+│   │       └── toast-notifications.css
+│   ├── images
+│   │   ├── lock-locked.svg
+│   │   └── lock-unlocked.svg
+│   └── js
+│       ├── admin.js
+│       └── modules
+│           ├── collapsible-sections.js
+│           ├── core.js
+│           ├── debug-log-viewer.js
+│           ├── debug-log.js
+│           ├── duplicate-dialog.js
+│           ├── duplicate-handling.js
+│           ├── image-actions.js
+│           ├── lock-handling.js
+│           ├── missing-images.js
+│           ├── page-selector.js
+│           ├── thumbnail-generation.js
+│           └── toast-notifications.js
+├── includes
+│   ├── ajax
+│   │   ├── class-ajax-handler-debug.php
+│   │   ├── class-ajax-handler-images-v2.php
+│   │   ├── class-ajax-handler-misc-v2.php
+│   │   └── class-ajax-handler-uploads.php
+│   ├── class-debug-log-reader.php
+│   ├── class-debug-logger.php
+│   ├── class-duplicate-ghost-handler.php
+│   ├── class-duplicate-handler.php
+│   ├── class-duplicate-source-manager.php
+│   ├── class-image-extractor.php
+│   ├── class-image-renderer.php
+│   ├── class-lock-manager.php
+│   ├── class-page-images-manager.php
+│   ├── class-size-helper.php
+│   └── generators
+│       ├── class-thumbnail-file-manager.php
+│       └── class-thumbnail-generator.php
+├── page-images-manager.php
+├── structure.txt
+└── templates
+    ├── admin-page.php
+    └── debug
+        └── debug-log-viewer.php
+
+12 directories, 44 files

@@ -35,7 +35,9 @@ const PIM_DuplicateDialog = (function($) {
         // Get duplicate details
         PIM_Core.ajax('get_duplicate_details',
             {
-                duplicate_ids: JSON.stringify(duplicateIds)
+                duplicate_ids: JSON.stringify(duplicateIds),
+                primary_id: primaryId,
+                page_id: pageId
             },
             function(data) {
                 PIM_Toast.dismiss(toastId);
