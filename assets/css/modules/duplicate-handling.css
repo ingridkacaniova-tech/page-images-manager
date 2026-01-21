@@ -7,6 +7,15 @@
 /* GHOST DELETE DIALOG */
 /* ============================================ */
 
+.pim-popup-content {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    position: relative;
+    z-index: 1000000;
+}
+
 .pim-delete-ghost-popup {
     max-width: 500px;
 }
@@ -50,7 +59,6 @@
 /* ============================================ */
 
 .delete-ghost-btn {
-    margin-left: 8px !important;
     background: #fef0f0 !important;
     border: 1px solid #d63638 !important;
     color: #d63638 !important;
@@ -312,6 +320,7 @@
     padding: 6px 16px;  /* ✅ Menší padding */
     font-size: 13px;  /* ✅ Menší font */
     height: auto;
+    margin: 0 !important;
 }
 
 /* ============================================ */
