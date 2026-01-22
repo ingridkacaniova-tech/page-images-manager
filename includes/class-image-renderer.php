@@ -378,4 +378,50 @@ class PIM_Image_Renderer {
             echo '</div>';
         }
     }
+
+    /**
+     * ✅ Render only action buttons (no size selectors, no thumbnail detection)
+     */
+    public function render_image_actions_only($image_id, $page_id, $duplicates) {
+        ob_start();
+        
+        $has_duplicates = !empty($duplicates);
+        $duplicate_ids = array();
+        
+        if ($has_duplicates) {
+            foreach ($duplicates as $dup) {
+                $duplicate_ids[] = $dup['missing_id'];
+            }
+        }
+        
+        ?>
+        <div class="pim-image-actions">
+            
+            <?php if ($has_duplicates): ?>
+                <button type="button" 
+                        class="button button-primary link-generate-btn" 
+                        data-primary-id="<?php echo esc_attr($image_id); ?>"
+                        data-duplicate-ids='<?php echo esc_attr(json_encode($duplicate_ids)); ?>'>
+                    🔗 Link &amp; Generate (<?php echo count($duplicate_ids); ?>)
+                </button>
+            <?php endif; ?>
+            
+            <button type="button" 
+                    class="button button-primary reload-image-btn" 
+                    data-image-id="<?php echo esc_attr($image_id); ?>"
+                    title="Replace image file and regenerate selected thumbnails">
+                🔄 Reload Image
+            </button>
+            
+            <button type="button" class="button button-link-delete delete-all-btn">
+                🗑️ Delete All
+            </button>
+            
+        </div>
+        <?php
+        
+        return ob_get_clean();
+    }
+
+
 }

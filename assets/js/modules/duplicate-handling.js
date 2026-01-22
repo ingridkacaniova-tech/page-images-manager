@@ -130,28 +130,106 @@ const PIM_DuplicateHandling = (function($) {
         const toastId = PIM_Toast.loading('Deleting ghost duplicates...');
         $button.prop('disabled', true);
         
-        PIM_Core.ajax('delete_ghost_duplicates',
-            {
-                ghost_ids: JSON.stringify(ghostIds)
-            },
-            function(data) {
-                PIM_Toast.update(toastId, data.message, 'success', 4000);
-                
-                // Remove the button
-                $button.remove();
-                
-                // Refresh images to update counts
-                setTimeout(function() {
-                    PIM_Core.refreshImages();
-                }, 500);
-            },
-            function(error) {
-                PIM_Toast.update(toastId, error, 'error');
-                $button.prop('disabled', false);
-            }
-        );
+        // ✅ Get image ID AND duplicate IDs before deleting
+        const $row = $button.closest('.pim-image-row');
+        const imageId = $row.data('image-id');
+        const $linkBtn = $row.find('.link-generate-btn');
+        const allDuplicateIds = $linkBtn.data('duplicate-ids') || [];
+        
+        PIM_Core.ajax('delete_ghost_duplicates', {
+            ghost_ids: JSON.stringify(ghostIds)
+        }, function(data) {
+            PIM_Toast.update(toastId, data.message, 'success', 4000);
+            
+            // ✅ Calculate remaining duplicates (remove ghosts)
+            const remainingDuplicates = allDuplicateIds.filter(function(id) {
+                return !ghostIds.includes(id);
+            });
+            
+            // ✅ Refresh only this image's action buttons
+            refreshImageActions(imageId, remainingDuplicates);
+            
+        }, function(error) {
+            PIM_Toast.update(toastId, error, 'error');
+            $button.prop('disabled', false);
+        });
+    }
+
+
+    /**
+     * ✅ Refresh only action buttons for single image (no full reload)
+     */
+    function refreshImageActions(imageId, duplicateIds, callback) {
+        const $row = $('.pim-image-row[data-image-id="' + imageId + '"]');
+        const $actionsContainer = $row.find('.pim-image-actions');
+        
+        if (!$actionsContainer.length) {
+            console.error('Actions container not found for image #' + imageId);
+            return;
+        }
+        
+        // Show loading spinner
+        $actionsContainer.html('<span class="spinner is-active" style="float: none; margin: 0;"></span>');
+        
+        PIM_Core.ajax('get_image_actions', {
+            image_id: imageId,
+            page_id: PIM_Core.getCurrentPageId(),
+            duplicate_ids: JSON.stringify(duplicateIds || [])
+        }, function(data) {
+            // Replace HTML
+            $actionsContainer.replaceWith(data.html);
+            
+            console.log('✅ Refreshed actions for image #' + imageId);
+            
+            // ✅ OPRAVA: Check ghost len pre TENTO image (nie všetky!)
+            checkGhostForSingleImage(imageId);
+            
+            if (callback) callback();
+            
+        }, function(error) {
+            console.error('Failed to refresh actions:', error);
+            $actionsContainer.html('<span style="color: red;">⚠️ Refresh failed</span>');
+        });
+    }
+
+/**
+ * ✅ Check for ghost duplicates for single image only
+ */
+function checkGhostForSingleImage(imageId) {
+    const $row = $('.pim-image-row[data-image-id="' + imageId + '"]');
+    const $btn = $row.find('.link-generate-btn');
+    
+    if (!$btn.length) {
+        return; // No duplicates button
     }
     
+    const primaryId = $btn.data('primary-id');
+    const duplicateIds = $btn.data('duplicate-ids');
+    const pageId = PIM_Core.getCurrentPageId();
+    
+    if (!primaryId || !duplicateIds || !pageId) {
+        return;
+    }
+    
+    // Remove any existing ghost button for this image
+    $btn.siblings('.delete-ghost-btn').remove();
+    
+    PIM_Core.ajax('find_ghost_duplicates', {
+        primary_id: primaryId,
+        duplicate_ids: JSON.stringify(duplicateIds),
+        page_id: pageId
+    }, function(data) {
+        if (data.ghosts && data.ghosts.length > 0) {
+            // Add ghost delete button
+            const $ghostBtn = $('<button type="button" class="button delete-ghost-btn" data-ghost-ids=\'' + 
+                JSON.stringify(data.ghosts) + '\'>🗑️ Delete unused occurrences (' + 
+                data.ghosts.length + ')</button>');
+            $btn.after($ghostBtn);
+            console.log('👻 Found ' + data.ghosts.length + ' ghost duplicates for #' + primaryId);
+        }
+    });
+}
+
     /**
      * Main Link & Generate click handler
      */
@@ -188,12 +266,11 @@ const PIM_DuplicateHandling = (function($) {
     }
     
     /**
-     * Execute Link & Generate (called by dialog or directly)
+     * ✅ Execute Link & Generate (called by dialog or directly)
      */
     function executeLinkAndGenerate($button, primaryId, duplicateIds, pageId, sourceMappings) {
         const toastId = PIM_Toast.loading('Linking & generating...');
-        
-        $button.prop('disabled', true).text('⏳ Linking & Generating...');
+        $button.prop('disabled', true).text('Linking & Generating...');
         
         const logData = {
             primary_id: primaryId,
@@ -202,63 +279,56 @@ const PIM_DuplicateHandling = (function($) {
             page_id: pageId
         };
         
-        console.log('🚀 Executing Link & Generate:', logData);
+        console.log('✅ Executing Link & Generate:', logData);
         if (typeof PIM_DebugLog !== 'undefined') {
-            PIM_DebugLog.log('🚀 Executing Link & Generate', logData);
+            PIM_DebugLog.log('Executing Link & Generate', logData);
         }
         
-        PIM_Core.ajax('link_and_generate',
-            {
-                primary_id: primaryId,
-                duplicate_ids: JSON.stringify(duplicateIds),
-                source_mappings: JSON.stringify(sourceMappings),
-                page_id: pageId
-            },
-            function(data) {
-                console.log('✅ Link & Generate response:', data);
-                if (typeof PIM_DebugLog !== 'undefined') {
-                    PIM_DebugLog.log('✅ Link & Generate response', data);
-                }
-                
-                // ✅ Show ghost files cleanup in message
-                let message = data.message;
-                if (data.deleted_ghost_files > 0) {
-                    message += '\n🗑️ Cleaned up ' + data.deleted_ghost_files + ' ghost file(s).';
-                }
-                
-                PIM_Toast.update(toastId, message, 'success', 5000);
-                
-                setTimeout(function() {
-                    PIM_Core.updateSingleImageRow(primaryId, function(success) {
-                        if (success) {
-                            console.log('✅ Primary row updated');
-                            
-                            duplicateIds.forEach(function(dupId) {
-                                const $dupRow = $('.pim-image-row[data-image-id="' + dupId + '"]');
-                                if ($dupRow.length) {
-                                    console.log('🗑️ Removing duplicate row #' + dupId);
-                                    $dupRow.fadeOut(300, function() {
-                                        $(this).remove();
-                                    });
-                                }
+        PIM_Core.ajax('link_and_generate', {
+            primary_id: primaryId,
+            duplicate_ids: JSON.stringify(duplicateIds),
+            source_mappings: JSON.stringify(sourceMappings),
+            page_id: pageId
+        }, function(data) {
+            console.log('✅ Link & Generate response:', data);
+            if (typeof PIM_DebugLog !== 'undefined') {
+                PIM_DebugLog.log('Link & Generate response', data);
+            }
+            
+            // Show ghost files cleanup in message
+            let message = data.message;
+            if (data.deleted_ghost_files > 0) {
+                message += ` Cleaned up ${data.deleted_ghost_files} ghost file(s).`;
+            }
+            
+            PIM_Toast.update(toastId, message, 'success', 5000);
+            
+            // ✅ Refresh with EMPTY duplicates (všetky boli zlinkované)
+            setTimeout(function() {
+                refreshImageActions(primaryId, [], function() {
+                    console.log('✅ Primary row actions refreshed');
+                    
+                    // Remove duplicate rows
+                    duplicateIds.forEach(function(dupId) {
+                        const $dupRow = $('.pim-image-row[data-image-id="' + dupId + '"]');
+                        if ($dupRow.length) {
+                            console.log('Removing duplicate row #' + dupId);
+                            $dupRow.fadeOut(300, function() {
+                                $(this).remove();
                             });
-                        } else {
-                            console.error('❌ Row update failed, falling back to full refresh');
-                            PIM_Core.refreshImages();
                         }
                     });
-                }, 500);
-            },
-            function(error) {
-                console.error('❌ Link & Generate error:', error);
-                if (typeof PIM_DebugLog !== 'undefined') {
-                    PIM_DebugLog.log('❌ Link & Generate error', error);
-                }
-                
-                PIM_Toast.update(toastId, error, 'error');
-                $button.prop('disabled', false).text('🔗 Link & Generate');
+                });
+            }, 500);
+            
+        }, function(error) {
+            console.error('❌ Link & Generate error:', error);
+            if (typeof PIM_DebugLog !== 'undefined') {
+                PIM_DebugLog.log('Link & Generate error', error);
             }
-        );
+            PIM_Toast.update(toastId, error, 'error');
+            $button.prop('disabled', false).text('🔗 Link & Generate');
+        });
     }
 
     

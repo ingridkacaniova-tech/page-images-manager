@@ -27,6 +27,9 @@ class PIM_Ajax_Handler_Images {
         add_action('wp_ajax_get_single_image_row', array($this, 'get_single_image_row'));
         add_action('wp_ajax_regenerate_page_images', array($this, 'regenerate_page_images'));
         add_action('wp_ajax_delete_all_thumbnails', array($this, 'delete_all_thumbnails'));
+
+        // ✅ NEW: Targeted button refresh
+        add_action('wp_ajax_get_image_actions', array($this, 'get_image_actions'));
     }
 
     /**
@@ -208,4 +211,43 @@ class PIM_Ajax_Handler_Images {
 
         wp_send_json_success(array('message' => $result));
     }
+
+    /**
+     * ✅ Get only action buttons HTML for single image
+     * NO extraction, duplicates come from frontend
+     */
+    public function get_image_actions() {
+        PIM_Debug_Logger::log_session_start('get_image_actions');
+        check_ajax_referer('page_images_manager', 'nonce');
+        
+        $image_id = isset($_POST['image_id']) ? intval($_POST['image_id']) : 0;
+        $page_id = isset($_POST['page_id']) ? intval($_POST['page_id']) : 0;
+        $duplicate_ids = isset($_POST['duplicate_ids']) ? json_decode(stripslashes($_POST['duplicate_ids']), true) : array();
+        
+        if (!$image_id || !$page_id) {
+            wp_send_json_error('Missing required data');
+        }
+        
+        error_log("✅ get_image_actions: Image #{$image_id}, Duplicates: " . count($duplicate_ids));
+        
+        // ✅ Convert duplicate IDs to format expected by renderer
+        $duplicates = array();
+        foreach ($duplicate_ids as $dup_id) {
+            $duplicates[] = array(
+                'missing_id' => $dup_id,
+                'missing_url' => wp_get_attachment_url($dup_id),
+                'source' => 'duplicate'
+            );
+        }
+        
+        // ✅ Render only action buttons (NO extraction, NO detection)
+        $buttons_html = $this->renderer->render_image_actions_only($image_id, $page_id, $duplicates);
+        
+        wp_send_json_success(array(
+            'html' => $buttons_html,
+            'image_id' => $image_id
+        ));
+    }
+
+
 }
