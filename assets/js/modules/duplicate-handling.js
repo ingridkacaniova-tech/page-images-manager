@@ -146,8 +146,8 @@ const PIM_DuplicateHandling = (function($) {
                 return !ghostIds.includes(id);
             });
             
-            // ✅ Refresh only this image's action buttons
-            refreshImageActions(imageId, remainingDuplicates);
+            // ✅ Refresh only this image's action buttons + session_id
+            refreshImageActions(imageId, remainingDuplicates, data.session_id);
             
         }, function(error) {
             PIM_Toast.update(toastId, error, 'error');
@@ -155,11 +155,10 @@ const PIM_DuplicateHandling = (function($) {
         });
     }
 
-
     /**
      * ✅ Refresh only action buttons for single image (no full reload)
      */
-    function refreshImageActions(imageId, duplicateIds, callback) {
+    function refreshImageActions(imageId, duplicateIds, sessionId, callback) {  // ✅ + sessionId
         const $row = $('.pim-image-row[data-image-id="' + imageId + '"]');
         const $actionsContainer = $row.find('.pim-image-actions');
         
@@ -174,7 +173,8 @@ const PIM_DuplicateHandling = (function($) {
         PIM_Core.ajax('get_image_actions', {
             image_id: imageId,
             page_id: PIM_Core.getCurrentPageId(),
-            duplicate_ids: JSON.stringify(duplicateIds || [])
+            duplicate_ids: JSON.stringify(duplicateIds || []),
+            session_id: sessionId  // ✅ PRIDAJ tento riadok
         }, function(data) {
             // Replace HTML
             $actionsContainer.replaceWith(data.html);
@@ -185,12 +185,12 @@ const PIM_DuplicateHandling = (function($) {
             checkGhostForSingleImage(imageId);
             
             if (callback) callback();
-            
         }, function(error) {
             console.error('Failed to refresh actions:', error);
             $actionsContainer.html('<span style="color: red;">⚠️ Refresh failed</span>');
         });
     }
+
 
 /**
  * ✅ Check for ghost duplicates for single image only
