@@ -74,57 +74,103 @@ window.PIM_DebugLogViewer = (function($) {
         applyFilter();
     }
 
-    /**
-     * Show last session from last AJAX request start
-     */
-    function showLastSession() {
-        const container = document.getElementById('log-container');
-        const lines = container.querySelectorAll('.pim-log-line');
-        
-        // ✅ Find LAST occurrence of AJAX HANDLER marker
-        let lastSessionStartIndex = -1;
-        lines.forEach((line, index) => {
-            // Each AJAX call starts with this marker
-            if (line.textContent.includes('🔗🔗🔗 AJAX HANDLER CALLED')) {
-                lastSessionStartIndex = index;  // ← Vždy prepíše na najnovší
-            }
-        });
-        
-        if (lastSessionStartIndex === -1) {
+function showLastSession() {
+    const container = document.getElementById('log-container');
+    
+    // ✅ ISSUE 53 FIX: Auto-reload if container doesn't exist
+    if (!container) {
+        if (typeof PIM_DebugLog !== 'undefined' && typeof PIM_DebugLog.reload === 'function') {
             if (typeof PIM_Toast !== 'undefined') {
-                PIM_Toast.warning('No AJAX request found in log');
-            } else {
-                alert('No AJAX request found');
+                PIM_Toast.info('Loading debug log...');
             }
-            return;
+            PIM_DebugLog.reload();
+            setTimeout(function() {
+                showLastSession();
+            }, 1200);
+        } else {
+            if (typeof PIM_Toast !== 'undefined') {
+                PIM_Toast.warning('Debug log not loaded yet');
+            }
         }
+        return;
+    }
+    
+    const lines = container.querySelectorAll('.pim-log-line');
+    
+    // ✅ Only show these important actions (skip meta-actions)
+    const importantActions = [
+        'Handler: get_page_images',
+        'Handler: upload_and_regenerate',
+        'Handler: reload_image_file',
+        'Handler: generate_missing_file',
+        'Handler: link_and_generate',
+        'Handler: regenerate_page_images',
+        'Handler: delete_ghost_duplicates',
+        'Handler: fix_elementor_image_id'
+    ];
+    
+    // Search from END backwards - find first important session
+    let lastSessionStartIndex = -1;
+    
+    for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i];
         
-        // Hide all lines before last AJAX request
-        let visibleCount = 0;
-        lines.forEach((line, index) => {
-            if (index >= lastSessionStartIndex) {
-                line.style.display = 'block';
-                visibleCount++;
-            } else {
-                line.style.display = 'none';
+        if (line.textContent.includes('🔗🔗🔗 SESSION START')) {
+            // Check next line for handler name
+            const nextLine = lines[i + 1];
+            
+            if (nextLine) {
+                let isImportant = false;
+                
+                for (let j = 0; j < importantActions.length; j++) {
+                    if (nextLine.textContent.includes(importantActions[j])) {
+                        isImportant = true;
+                        break;
+                    }
+                }
+                
+                if (isImportant) {
+                    // Found it! This is the last REAL user action
+                    lastSessionStartIndex = i;
+                    break;
+                }
             }
-        });
-        
-        // Update filter input
-        document.getElementById('log-filter').value = 'Last AJAX Request';
-        
-        // Show filter results banner
-        document.getElementById('filter-results').style.display = 'block';
-        document.getElementById('filter-count').textContent = visibleCount;
-        document.getElementById('filter-keyword').textContent = 'Last AJAX Request (from line ' + (lastSessionStartIndex + 1) + ')';
-        
-        // Scroll to top of log
-        container.scrollTop = 0;
-        
-        if (typeof PIM_Toast !== 'undefined') {
-            PIM_Toast.success('Showing last AJAX request (' + visibleCount + ' lines)');
         }
     }
+    
+    if (lastSessionStartIndex === -1) {
+        if (typeof PIM_Toast !== 'undefined') {
+            PIM_Toast.warning('No important AJAX request found in log');
+        }
+        return;
+    }
+    
+    // Hide all lines before last session
+    let visibleCount = 0;
+    lines.forEach((line, index) => {
+        if (index >= lastSessionStartIndex) {
+            line.style.display = 'block';
+            visibleCount++;
+        } else {
+            line.style.display = 'none';
+        }
+    });
+    
+    // Update filter input
+    document.getElementById('log-filter').value = 'Last AJAX Request';
+    
+    // Show filter results banner
+    document.getElementById('filter-results').style.display = 'block';
+    document.getElementById('filter-count').textContent = visibleCount;
+    document.getElementById('filter-keyword').textContent = 'Last AJAX Request (from line ' + (lastSessionStartIndex + 1) + ')';
+    
+    // Scroll to top of log
+    container.scrollTop = 0;
+    
+    if (typeof PIM_Toast !== 'undefined') {
+        PIM_Toast.success('Showing last AJAX request (' + visibleCount + ' lines)');
+    }
+}
     
     /**
      * Copy visible log content to clipboard
@@ -185,10 +231,16 @@ window.PIM_DebugLogViewer = (function($) {
                     }
                     
                     // Reload debug log
-                    if (typeof PIM_DebugLog !== 'undefined') {
-                        $('#pim-debug-log-section').html('');
-                        $('#pim-show-debug-toggle').prop('checked', false).trigger('change');
+                    // ✅ ISSUE 53 FIX: Don't remove entire section
+                    const $logContainer = $('#log-container');
+                    if ($logContainer.length) {
+                        $logContainer.html('<div class="pim-log-line" style="color: #666; text-align: center; padding: 40px;">📋 Debug log is empty. Perform some actions to see logs here.</div>');
                     }
+                    $('#log-filter').val('');
+                    $('#filter-results').hide();
+                    $('.pim-stat-value').text('0');
+                    $('.pim-stat-box.pim-stat-total .pim-stat-value').text('0');
+                    $('.pim-stat-box.pim-stat-total .pim-stat-sublabel').text('Last 0 of 0');
                 } else {
                     if (typeof PIM_Toast !== 'undefined') {
                         PIM_Toast.error('Error: ' + response.data);
