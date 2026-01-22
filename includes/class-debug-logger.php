@@ -19,7 +19,7 @@ class PIM_Debug_Logger {
 		$session_id = uniqid('sess_', true);
 		$timestamp = microtime(true);
 		$ms = sprintf("%03d", ($timestamp - floor($timestamp)) * 1000);
-		$time_str = date('H:i:s', $timestamp) . '.' . $ms;
+		$time_str = date('H:i:s', (int)$timestamp) . '.' . $ms;  // ✅ Explicitný int cast
 		
 		error_log("\n🔗🔗🔗 SESSION START: {$session_id} [{$time_str}]");
 		error_log("📌 Handler: {$handler_name}");
