@@ -1,5 +1,5 @@
 <?php
-error_log("🟢 class-ajax-handler-misc-v2.php LOADED (TODO 50/51)");
+error_log("🟢 class-ajax-handler-misc.php LOADED (TODO 50/51)");
 
 if (!defined('ABSPATH')) exit;
 
@@ -91,7 +91,7 @@ class PIM_Ajax_Handler_Misc {
      * ✅ TODO 50A: Delete ghost duplicates
      */
     public function delete_ghost_duplicates() {
-        PIM_Debug_Logger::log_session_start('delete_ghost_duplicates');
+        $session_id = PIM_Debug_Logger::log_session_start('delete_ghost_duplicates');
         
         check_ajax_referer('page_images_manager', 'nonce');
         
@@ -103,9 +103,13 @@ class PIM_Ajax_Handler_Misc {
         
         $result = $this->duplicate_handler->delete_ghost_duplicates($ghost_ids);
         
+        // ✅ Pridaj session_id do response pre JS
+        $result['session_id'] = $session_id;
+        
+        $result['session_id'] = $session_id;
         wp_send_json_success($result);
     }
-    
+ 
     /**
      * ✅ TODO 51: Save custom source
      */

@@ -61,9 +61,9 @@ require_once PIM_PLUGIN_DIR . 'includes/class-duplicate-ghost-handler.php';
 require_once PIM_PLUGIN_DIR . 'includes/class-duplicate-source-manager.php';
 
 // ✅ AJAX handler classes (depend on generators)
-require_once PIM_PLUGIN_DIR . 'includes/ajax/class-ajax-handler-images-v2.php';
+require_once PIM_PLUGIN_DIR . 'includes/ajax/class-ajax-handler-images.php';
 require_once PIM_PLUGIN_DIR . 'includes/ajax/class-ajax-handler-uploads.php';
-require_once PIM_PLUGIN_DIR . 'includes/ajax/class-ajax-handler-misc-v2.php';
+require_once PIM_PLUGIN_DIR . 'includes/ajax/class-ajax-handler-misc.php';
 require_once PIM_PLUGIN_DIR . 'includes/ajax/class-ajax-handler-debug.php';
 
 // Main plugin class

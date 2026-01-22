@@ -211,13 +211,20 @@ class PIM_Ajax_Handler_Images {
 
         wp_send_json_success(array('message' => $result));
     }
-
+    
     /**
      * ✅ Get only action buttons HTML for single image
      * NO extraction, duplicates come from frontend
      */
     public function get_image_actions() {
-        PIM_Debug_Logger::log_session_start('get_image_actions');
+        $session_id = isset($_POST['session_id']) ? sanitize_text_field($_POST['session_id']) : null;
+        
+        if (!$session_id) {
+            $session_id = PIM_Debug_Logger::log_session_start('get_image_actions');
+        } else {
+            PIM_Debug_Logger::log("📌 Continuing session: {$session_id} (get_image_actions)");
+        }
+        
         check_ajax_referer('page_images_manager', 'nonce');
         
         $image_id = isset($_POST['image_id']) ? intval($_POST['image_id']) : 0;
@@ -245,7 +252,8 @@ class PIM_Ajax_Handler_Images {
         
         wp_send_json_success(array(
             'html' => $buttons_html,
-            'image_id' => $image_id
+            'image_id' => $image_id,
+            'session_id' => $session_id  // ✅ PRIDAJ
         ));
     }
 
