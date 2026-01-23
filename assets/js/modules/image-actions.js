@@ -61,52 +61,9 @@ const PIM_ImageActions = (function($) {
         const hasNonStandard = PIM_ThumbnailGeneration.hasNonStandardSelection($row);
         
         PIM_Core.createFileInput('image/*', function(file) {
-            showReloadConfirmation(file, hasNonStandard, function() {
+            PIM_Dialog.showReloadConfirmation(file, hasNonStandard, function() {
                 uploadAndReload($button, $row, file, imageId, pageId, sourceMappings, hasNonStandard);
             });
-        });
-    }
-    
-    function showReloadConfirmation(file, hasNonStandard, onConfirm) {
-        const message = hasNonStandard
-            ? 'Upload new file and relink Elementor references?<br><br><strong>⚠️ This will NOT generate thumbnails.</strong><br>Old file will be DELETED.'
-            : 'Replace this image?<br><br><strong>⚠️ Old file and all its thumbnails will be DELETED!</strong><br>Selected thumbnail sizes will be generated.';
-        
-        const popupHtml = 
-            '<div id="pim-reload-popup-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 999999; display: flex; align-items: center; justify-content: center;">' +
-            '<div style="background: white; padding: 30px; border-radius: 8px; max-width: 500px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">' +
-            '<h2 style="margin: 0 0 20px 0; color: #2271b1;">🔄 Replace this image?</h2>' +
-            '<p style="margin-bottom: 15px;">' + message + '</p>' +
-            '<p style="background: #f0f0f1; padding: 12px; border-radius: 4px; margin: 20px 0;"><strong>File:</strong> ' + file.name + '</p>' +
-            '<div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">' +
-            '<button id="pim-reload-popup-cancel" class="button" style="padding: 8px 20px;">Cancel</button>' +
-            '<button id="pim-reload-popup-confirm" class="button button-primary" style="padding: 8px 20px;">✅ Replace Image</button>' +
-            '</div>' +
-            '</div>' +
-            '</div>';
-        
-        $('body').append(popupHtml);
-        
-        $('#pim-reload-popup-cancel').on('click', function() {
-            $('#pim-reload-popup-overlay').remove();
-        });
-        
-        $('#pim-reload-popup-confirm').on('click', function() {
-            $('#pim-reload-popup-overlay').remove();
-            onConfirm();
-        });
-        
-        $('#pim-reload-popup-overlay').on('click', function(e) {
-            if (e.target.id === 'pim-reload-popup-overlay') {
-                $(this).remove();
-            }
-        });
-        
-        $(document).on('keydown.pim-reload-popup', function(e) {
-            if (e.key === 'Escape') {
-                $('#pim-reload-popup-overlay').remove();
-                $(document).off('keydown.pim-reload-popup');
-            }
         });
     }
     
@@ -167,47 +124,8 @@ const PIM_ImageActions = (function($) {
         const imageId = $button.data('image-id');
         const pageId = PIM_Core.getCurrentPageId();
         
-        showFixIdConfirmation(imageId, function() {
+        PIM_Dialog.showFixIdConfirmation(imageId, function() {
             executeFixElementorId($button, imageId, pageId);
-        });
-    }
-    
-    function showFixIdConfirmation(imageId, onConfirm) {
-        const popupHtml = 
-            '<div id="pim-fixid-popup-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 999999; display: flex; align-items: center; justify-content: center;">' +
-            '<div style="background: white; padding: 30px; border-radius: 8px; max-width: 500px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">' +
-            '<h2 style="margin: 0 0 20px 0; color: #2271b1;">🔧 Fix Elementor ID?</h2>' +
-            '<p style="margin-bottom: 15px;">This will search Elementor data for image <strong>#' + imageId + '</strong> URL and update it with the correct ID.</p>' +
-            '<p style="background: #e7f3ff; border-left: 4px solid #2196F3; padding: 12px; margin: 20px 0; font-size: 13px;">💡 <strong>Use this when:</strong> Elementor widgets show wrong image due to incorrect attachment ID.</p>' +
-            '<div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">' +
-            '<button id="pim-fixid-popup-cancel" class="button" style="padding: 8px 20px;">Cancel</button>' +
-            '<button id="pim-fixid-popup-confirm" class="button button-primary" style="padding: 8px 20px;">✅ Fix ID</button>' +
-            '</div>' +
-            '</div>' +
-            '</div>';
-        
-        $('body').append(popupHtml);
-        
-        $('#pim-fixid-popup-cancel').on('click', function() {
-            $('#pim-fixid-popup-overlay').remove();
-        });
-        
-        $('#pim-fixid-popup-confirm').on('click', function() {
-            $('#pim-fixid-popup-overlay').remove();
-            onConfirm();
-        });
-        
-        $('#pim-fixid-popup-overlay').on('click', function(e) {
-            if (e.target.id === 'pim-fixid-popup-overlay') {
-                $(this).remove();
-            }
-        });
-        
-        $(document).on('keydown.pim-fixid-popup', function(e) {
-            if (e.key === 'Escape') {
-                $('#pim-fixid-popup-overlay').remove();
-                $(document).off('keydown.pim-fixid-popup');
-            }
         });
     }
     
@@ -239,47 +157,8 @@ const PIM_ImageActions = (function($) {
         const $row = $button.closest('.pim-image-row');
         const imageId = $row.data('image-id');
         
-        showDeleteAllConfirmation(imageId, function() {
+        PIM_Dialog.showDeleteAllConfirmation(imageId, function() {
             executeDeleteAll($button, $row, imageId);
-        });
-    }
-    
-    function showDeleteAllConfirmation(imageId, onConfirm) {
-        const popupHtml = 
-            '<div id="pim-delete-popup-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 999999; display: flex; align-items: center; justify-content: center;">' +
-            '<div style="background: white; padding: 30px; border-radius: 8px; max-width: 500px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">' +
-            '<h2 style="margin: 0 0 20px 0; color: #d63638;">🗑️ Delete ALL thumbnails?</h2>' +
-            '<p style="margin-bottom: 15px;">This will permanently delete <strong>ALL thumbnails</strong> for image <strong>#' + imageId + '</strong>.</p>' +
-            '<p style="background: #fef0f0; border-left: 4px solid #d63638; padding: 12px; margin: 20px 0; font-size: 13px; color: #721c24;"><strong>⚠️ Warning:</strong> This action cannot be undone! The original image will remain, but all generated thumbnails will be deleted.</p>' +
-            '<div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">' +
-            '<button id="pim-delete-popup-cancel" class="button" style="padding: 8px 20px;">Cancel</button>' +
-            '<button id="pim-delete-popup-confirm" class="button button-primary" style="padding: 8px 20px; background: #d63638; border-color: #d63638;">🗑️ Delete All</button>' +
-            '</div>' +
-            '</div>' +
-            '</div>';
-        
-        $('body').append(popupHtml);
-        
-        $('#pim-delete-popup-cancel').on('click', function() {
-            $('#pim-delete-popup-overlay').remove();
-        });
-        
-        $('#pim-delete-popup-confirm').on('click', function() {
-            $('#pim-delete-popup-overlay').remove();
-            onConfirm();
-        });
-        
-        $('#pim-delete-popup-overlay').on('click', function(e) {
-            if (e.target.id === 'pim-delete-popup-overlay') {
-                $(this).remove();
-            }
-        });
-        
-        $(document).on('keydown.pim-delete-popup', function(e) {
-            if (e.key === 'Escape') {
-                $('#pim-delete-popup-overlay').remove();
-                $(document).off('keydown.pim-delete-popup');
-            }
         });
     }
     

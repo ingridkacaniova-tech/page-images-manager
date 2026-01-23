@@ -66,60 +66,8 @@ const PIM_DuplicateHandling = (function($) {
             return;
         }
         
-        showDeleteGhostDialog($button, ghostIds);
-    }
-    
-    /**
-     * ✅ Show nice dialog for ghost deletion
-     */
-    function showDeleteGhostDialog($button, ghostIds) {
-        let idList = '';
-        ghostIds.forEach(function(id) {
-            idList += '<li>#' + id + '</li>';
-        });
-        
-        const popupHtml = 
-            '<div id="pim-delete-ghost-overlay" class="pim-popup-overlay">' +
-            '<div class="pim-popup-content pim-delete-ghost-popup">' +
-            '<h2>🗑️ Delete unused occurrences?</h2>' +
-            '<p><strong>These IDs are not used in Elementor:</strong></p>' +
-            '<ul class="pim-ghost-id-list">' + idList + '</ul>' +
-            '<div class="pim-warning-box">' +
-            '<p><strong>⚠️ Warning:</strong> This will permanently delete them from database and disk.</p>' +
-            '</div>' +
-            '<div class="pim-popup-actions">' +
-            '<button id="pim-delete-ghost-cancel" class="button">Cancel</button>' +
-            '<button id="pim-delete-ghost-confirm" class="button button-primary" style="background: #d63638; border-color: #d63638;">🗑️ Delete</button>' +
-            '</div>' +
-            '</div>' +
-            '</div>';
-        
-        $('body').append(popupHtml);
-        
-        // Cancel button
-        $('#pim-delete-ghost-cancel').on('click', function() {
-            $('#pim-delete-ghost-overlay').remove();
-        });
-        
-        // Confirm button
-        $('#pim-delete-ghost-confirm').on('click', function() {
-            $('#pim-delete-ghost-overlay').remove();
+        PIM_Dialog.showDeleteGhost(ghostIds, function() {
             executeDeleteGhost($button, ghostIds);
-        });
-        
-        // Close on overlay click
-        $('#pim-delete-ghost-overlay').on('click', function(e) {
-            if (e.target.id === 'pim-delete-ghost-overlay') {
-                $(this).remove();
-            }
-        });
-        
-        // Close on ESC
-        $(document).on('keydown.pim-delete-ghost', function(e) {
-            if (e.key === 'Escape') {
-                $('#pim-delete-ghost-overlay').remove();
-                $(document).off('keydown.pim-delete-ghost');
-            }
         });
     }
     

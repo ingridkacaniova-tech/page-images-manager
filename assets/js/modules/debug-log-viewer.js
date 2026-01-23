@@ -211,9 +211,27 @@ function showLastSession() {
      * Clear entire debug log file
      */
     function clearLogFile() {
-        if (!confirm('Clear entire debug log? This cannot be undone!')) {
-            return;
-        }
+        PIM_Dialog.confirm({
+            title: '🗑️ Clear Debug Log?',
+            message: 'Clear entire debug log? This cannot be undone!',
+            confirmText: '🗑️ Clear Log',
+            cancelText: 'Cancel',
+            isDangerous: true,
+            onConfirm: function() {
+                // Presun celý AJAX call sem
+                $.ajax({
+                    url: pimData.ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: 'clear_debug_log',
+                        nonce: pimDebugLogNonce
+                    },
+                    success: function(response) {
+                        // ... existing code ...
+                    }
+                });
+            }
+        });
         
         $.ajax({
             url: pimData.ajaxurl,

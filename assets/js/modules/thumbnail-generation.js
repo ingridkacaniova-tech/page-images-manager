@@ -44,13 +44,11 @@ const PIM_ThumbnailGeneration = (function($) {
         const result = PIM_Core.collectSourceMappings($row);
         
         if (result.missingSources.length > 0) {
-            // ✅ Toast instead of alert
             PIM_Toast.warning('Please select format for: ' + result.missingSources.join(', '));
             return null;
         }
         
         if (Object.keys(result.sourceMappings).length === 0) {
-            // ✅ Toast instead of alert
             PIM_Toast.warning('No thumbnail sizes selected');
             return null;
         }

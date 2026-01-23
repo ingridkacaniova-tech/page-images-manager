@@ -27,6 +27,7 @@ jQuery(document).ready(function($) {
     const modules = [
         'PIM_Toast',              // ✅ ISSUE 25: Added first
         'PIM_Core',
+        'PIM_Dialog',             // ✅ TODO 54: NEW - dialog helpers
         'PIM_PageSelector',
         'PIM_CollapsibleSections',
         'PIM_ThumbnailGeneration',

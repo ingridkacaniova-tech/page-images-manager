@@ -108,9 +108,34 @@ class Page_Images_Manager {
         wp_enqueue_script('pim-debug-log-viewer', PIM_PLUGIN_URL . 'assets/js/modules/debug-log-viewer.js', array('jquery'), filemtime(PIM_PLUGIN_DIR . 'assets/js/modules/debug-log-viewer.js'), true);
         wp_enqueue_script('pim-lock-handling', PIM_PLUGIN_URL . 'assets/js/modules/lock-handling.js', array('jquery', 'pim-core', 'pim-toast'), filemtime(PIM_PLUGIN_DIR . 'assets/js/modules/lock-handling.js'), true);
         
-        // Main orchestrator (depends on all modules)
-        wp_enqueue_script('pim-admin-js', PIM_PLUGIN_URL . 'assets/js/admin.js', array('jquery', 'pim-core', 'pim-toast', 'pim-page-selector', 'pim-collapsible', 'pim-thumbnail-gen', 'pim-image-actions', 'pim-duplicate-handling', 'pim-duplicate-dialog', 'pim-missing-images', 'pim-debug-log', 'pim-debug-log-viewer', 'pim-lock-handling'), filemtime(PIM_PLUGIN_DIR . 'assets/js/admin.js'), true);
+        // ============================================
+        // ENQUEUE JAVASCRIPT MODULES
+        // ============================================
+
+        wp_enqueue_script('pim-core', PIM_PLUGIN_URL . 'assets/js/modules/core.js', array('jquery'), filemtime(PIM_PLUGIN_DIR . 'assets/js/modules/core.js'), true);
+        wp_enqueue_script('pim-toast', PIM_PLUGIN_URL . 'assets/js/modules/toast-notifications.js', array(), filemtime(PIM_PLUGIN_DIR . 'assets/js/modules/toast-notifications.js'), true);
+
+        // ✅ TODO 54: Dialog helpers module (load early - other modules depend on it)
+        wp_enqueue_script('pim-dialog-helpers', PIM_PLUGIN_URL . 'assets/js/modules/dialog-helpers.js', array('jquery', 'pim-core', 'pim-toast'), filemtime(PIM_PLUGIN_DIR . 'assets/js/modules/dialog-helpers.js'), true);
+        wp_enqueue_script('pim-page-selector', PIM_PLUGIN_URL . 'assets/js/modules/page-selector.js', array('jquery', 'pim-core', 'pim-toast'), filemtime(PIM_PLUGIN_DIR . 'assets/js/modules/page-selector.js'), true);
         
+        // Main orchestrator (depends on all modules)
+        wp_enqueue_script('pim-admin-js', PIM_PLUGIN_URL . 'assets/js/admin.js', array(
+            'jquery', 
+            'pim-core', 
+            'pim-toast', 
+            'pim-dialog-helpers',  // ✅ TODO 54: NEW dependency
+            'pim-page-selector', 
+            'pim-collapsible', 
+            'pim-thumbnail-gen', 
+            'pim-image-actions', 
+            'pim-duplicate-handling', 
+            'pim-duplicate-dialog', 
+            'pim-missing-images', 
+            'pim-debug-log', 
+            'pim-debug-log-viewer', 
+            'pim-lock-handling'
+        ), filemtime(PIM_PLUGIN_DIR . 'assets/js/admin.js'), true);        
         // Localize script with data
         $inline_script = sprintf(
             'const pimData = %s;',
