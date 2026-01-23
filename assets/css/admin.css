@@ -10,15 +10,18 @@
  * - image-grid.css - Image rows and thumbnails
  * - size-selectors.css - Radio button size selection
  * - buttons-animations.css - Buttons and animations
+ * 
+ * ✅ TODO 47+48: Fluid container, responsive layout
  */
 
 /* ============================================ */
-/* BASE CONTAINER & LAYOUT */
+/* BASE CONTAINER & LAYOUT - FLUID WIDTH */
 /* ============================================ */
 
 .pim-container {
-    max-width: 1600px;
+    max-width: 100%;
     margin: 20px 0;
+    width: 100%;
 }
 
 .pim-section {
@@ -27,6 +30,8 @@
     margin: 20px 0;
     border: 1px solid #ccd0d4;
     box-shadow: 0 1px 1px rgba(0,0,0,.04);
+    width: 100%;
+    box-sizing: border-box;
 }
 
 /* ============================================ */
@@ -35,8 +40,21 @@
 
 .pim-select {
     width: 400px;
+    max-width: 100%;
     height: 40px;
     font-size: 14px;
+}
+
+@media (max-width: 1399px) {
+    .pim-select {
+        width: 350px;
+    }
+}
+
+@media (max-width: 1199px) {
+    .pim-select {
+        width: 300px;
+    }
 }
 
 /* ============================================ */

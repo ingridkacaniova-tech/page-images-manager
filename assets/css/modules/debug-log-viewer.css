@@ -13,6 +13,8 @@
     padding: 20px;
     border-radius: 4px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .pim-debug-log-viewer h2 {
@@ -36,8 +38,10 @@
     padding: 8px 12px;
     border: 1px solid #8c8f94;
     border-radius: 4px;
-    min-width: 400px;
+    min-width: 300px;
+    max-width: 100%;
     font-size: 14px;
+    flex: 1 1 300px;
 }
 
 .pim-last-session-btn {
@@ -192,6 +196,8 @@
     line-height: 1.6;
     max-height: 600px;
     overflow-y: auto;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 /* ============================================ */
@@ -238,4 +244,49 @@
     font-weight: bold;
     padding: 2px 4px;
     border-radius: 2px;
+}
+
+/* ============================================ */
+/* TODO 47+48: RESPONSIVE DEBUG LOG */
+/* ============================================ */
+
+#pim-debug-info-box {
+    background: #fff3cd;
+    border: 2px solid #ffc107;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+#pim-debug-info-box pre {
+    background: white;
+    padding: 10px;
+    max-height: 400px;
+    overflow: auto;
+    margin: 0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+@media (max-width: 1399px) {
+    .pim-filter-input {
+        min-width: 250px;
+        flex: 1 1 250px;
+    }
+}
+
+@media (max-width: 1199px) {
+    .pim-filter-input {
+        min-width: 200px;
+        flex: 1 1 200px;
+    }
+}
+
+@media (max-width: 1399px) {
+    .pim-debug-log-content {
+        font-size: 11px;
+        padding: 15px;
+    }
 }

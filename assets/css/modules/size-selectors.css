@@ -4,6 +4,7 @@
  * 
  * ✅ TODO 28 FIXED: Checked radiobutton background = Reload Image button color (#2271b1)
  * ✅ TODO 30 FIXED: Vertical centering, Non-Standard same style as others
+ * ✅ TODO 47+48: Resolution HNEĎ za názvom (1 riadok), responsive
  */
 
 /* ============================================ */
@@ -26,6 +27,13 @@
     padding: 8px;
     border-radius: 3px;
     background: white;
+    position: relative;
+}
+
+@media (max-width: 1399px) {
+    .pim-source-group {
+        padding: 6px;
+    }
 }
 
 .pim-source-name {
@@ -46,11 +54,14 @@
     width: 100%;
 }
 
-/* ✅ Vertical centering WITHOUT increasing height */
+/* ============================================ */
+/* LABEL - RESOLUTION HNEĎ ZA NÁZVOM (1 RIADOK) */
+/* ============================================ */
+
 .pim-size-radios label {
     display: flex !important;
-    align-items: center;  /* ✅ Vertical centering */
-    padding: 4px 6px;     /* ✅ Original padding */
+    align-items: center;
+    padding: 4px 6px;
     background: #f9f9f9;
     border: 1px solid #e0e0e0;
     border-radius: 3px;
@@ -58,6 +69,8 @@
     cursor: pointer;
     transition: background 0.2s, border-color 0.2s;
     margin: 0 !important;
+    gap: 4px;
+    min-height: 28px;
 }
 
 .pim-size-radios label:hover {
@@ -65,7 +78,10 @@
     border-color: #2271b1;
 }
 
-/* ✅ TODO 28: Checked radiobutton = Reload Image button color */
+/* ============================================ */
+/* CHECKED STATE - TODO 28: Blue background */
+/* ============================================ */
+
 .pim-size-radios input[type="radio"]:checked + .size-name {
     font-weight: 700;
 }
@@ -89,33 +105,62 @@
     border-color: #135e96 !important;
 }
 
+/* ============================================ */
+/* RADIO INPUT */
+/* ============================================ */
+
 .pim-size-radios input[type="radio"] {
-    margin-right: 6px;
+    margin: 0;
     flex-shrink: 0;
 }
 
 /* ============================================ */
-/* SIZE LABELS */
+/* SIZE LABELS - INLINE, TESNE ZA SEBOU */
 /* ============================================ */
 
 .pim-size-radios .size-name {
     font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .pim-size-radios .size-dimensions {
     font-size: 11px;
     color: #666;
-    margin-left: 3px;
+    margin-left: 0;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 /* ============================================ */
-/* NON-STANDARD OPTION - ✅ SAME style as others */
+/* RESPONSIVE BREAKPOINTS */
+/* ============================================ */
+
+@media (max-width: 1399px) {
+    .pim-size-radios label {
+        font-size: 10px;
+        padding: 3px 5px;
+        min-height: 26px;
+        gap: 3px;
+    }
+    
+    .pim-size-radios .size-dimensions {
+        font-size: 10px;
+    }
+}
+
+@media (max-width: 1199px) {
+    .pim-size-radios label {
+        font-size: 10px;
+        padding: 3px 4px;
+        gap: 3px;
+    }
+}
+
+/* ============================================ */
+/* NON-STANDARD OPTION - SAME STYLE */
 /* ============================================ */
 
 .pim-size-radios label:has(input[value="non-standard"]) {
-    /* ✅ NO special styling - exactly like other buttons */
-    grid-column: 1 / -1 !important;  /* Only keep full width */
-    /* All other styles inherited from .pim-size-radios label */
+    grid-column: 1 / -1 !important;
 }
-
-/* Non-Standard checked state inherits from parent .pim-size-radios label:has(input[type="radio"]:checked) */
