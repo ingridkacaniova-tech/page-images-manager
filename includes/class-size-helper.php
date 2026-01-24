@@ -223,11 +223,12 @@ class PIM_Size_Helper {
     }
     
     /**
-     * Get preselected size for a source on INITIAL load
+     * ✅ ISSUE 57 - Enhanced preselection for RECOVERED - FILL IN source
+     * Add to get_preselected_size() method
      */
     public function get_preselected_size($image_id, $source, $image_meta = null) {
         error_log("\n🎯 === GET_PRESELECTED_SIZE ===");
-        error_log("🆔 Image ID: {$image_id}");
+        error_log("📷 Image ID: {$image_id}");
         error_log("📍 Source: {$source}");
         
         // Get metadata if not provided
@@ -243,6 +244,44 @@ class PIM_Size_Helper {
             return null;
         }
         
+        // ✅ SPECIAL HANDLING FOR "RECOVERED - FILL IN" SOURCE
+        if ($source === 'RECOVERED - FILL IN') {
+            error_log("🔄 Special handling for RECOVERED - FILL IN source");
+            
+            if (isset($image_meta['sizes']) && is_array($image_meta['sizes'])) {
+                error_log("📋 Available sizes: " . implode(', ', array_keys($image_meta['sizes'])));
+                
+                // Find the most recently added size (last in array)
+                $sizes_keys = array_keys($image_meta['sizes']);
+                $last_size_key = end($sizes_keys);
+                $last_size_data = $image_meta['sizes'][$last_size_key];
+                
+                error_log("🔍 Last added size: {$last_size_key}");
+                
+                // Try to match dimensions to standard size
+                if (isset($last_size_data['width']) && isset($last_size_data['height'])) {
+                    $width = $last_size_data['width'];
+                    $height = $last_size_data['height'];
+                    
+                    $matched = $this->match_size_by_dimensions($width, $height);
+                    
+                    if ($matched) {
+                        error_log("✅ PRESELECTING (matched): {$matched} for {$width}×{$height}");
+                        error_log("🎯 === RESULT: {$matched} ===\n");
+                        return $matched;
+                    }
+                }
+                
+                // If it's a non-standard size
+                if (strpos($last_size_key, 'non-standard-') === 0) {
+                    error_log("⚠️ PRESELECTING: non-standard (last added size is non-standard)");
+                    error_log("🎯 === RESULT: non-standard ===\n");
+                    return 'non-standard';
+                }
+            }
+        }
+        
+        // ✅ EXISTING LOGIC FOR OTHER SOURCES
         // Log what we have in metadata
         if (isset($image_meta['sizes'])) {
             error_log("📋 Metadata has sizes: " . implode(', ', array_keys($image_meta['sizes'])));
@@ -250,7 +289,7 @@ class PIM_Size_Helper {
             error_log("⚠️ Metadata has no 'sizes' array");
         }
         
-        // Detect existing thumbnails (uses improved detection)
+        // Detect existing thumbnails
         $existing_thumbnails = $this->detect_existing_thumbnails($image_id, $image_meta);
         
         if (empty($existing_thumbnails)) {
@@ -294,5 +333,29 @@ class PIM_Size_Helper {
     public function is_valid_size($size_name) {
         $custom_sizes = $this->get_custom_sizes();
         return isset($custom_sizes[$size_name]);
+    }
+
+    /**
+     * ✅ Match size by dimensions
+     */
+    private function match_size_by_dimensions($width, $height) {
+        $all_sizes = wp_get_registered_image_subsizes();
+        
+        foreach ($all_sizes as $size_name => $size_data) {
+            $size_width = $size_data['width'] ?? 0;
+            $size_height = $size_data['height'] ?? 0;
+            
+            // Exact match
+            if ($width == $size_width && $height == $size_height) {
+                return $size_name;
+            }
+            
+            // Match with height = 0 (proportional width)
+            if ($size_height == 0 && $width == $size_width) {
+                return $size_name;
+            }
+        }
+        
+        return null;
     }
 }

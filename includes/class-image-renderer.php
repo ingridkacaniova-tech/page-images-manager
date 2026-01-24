@@ -148,6 +148,41 @@ class PIM_Image_Renderer {
             echo '</div>';
         }
         
+        // Orphan Files section
+        if (!empty($orphan_files)) {
+            $current_section++;
+            $is_first = ($current_section === 1);
+            $is_last = ($current_section === $section_count);
+            
+            echo '<div class="pim-collapsible-section" id="section-orphan-files">';
+            echo '<div class="pim-section-header">';
+            
+                echo '<h3 class="pim-section-toggle" data-section="orphan-files" style="color: #999;">';
+                echo '<span class="dashicons dashicons-arrow-down-alt2"></span>';
+                echo '🗑️ Orphan Files (' . count($orphan_files) . ')';
+                echo '</h3>';
+                
+                echo '<div class="pim-section-actions">';
+                
+                if (!$is_first) {
+                    echo '<button class="button pim-section-nav" data-direction="up" title="Previous section"><span class="dashicons dashicons-arrow-up-alt2"></span></button>';
+                }
+                if (!$is_last) {
+                    echo '<button class="button pim-section-nav" data-direction="down" title="Next section"><span class="dashicons dashicons-arrow-down-alt2"></span></button>';
+                }
+                
+                echo '</div>';
+                
+            echo '</div>';
+            
+            echo '<div class="pim-section-content" id="orphan-files-content">';
+            foreach ($orphan_files as $orphan) {
+                $this->render_orphan_file_row($orphan);
+            }
+            echo '</div>';
+            echo '</div>';
+        }
+
         return ob_get_clean();
     }
 
@@ -307,7 +342,8 @@ class PIM_Image_Renderer {
     }
     
     /**
-     * Render missing in database row
+     * ✅ ISSUE 57 - SCENARIO 4: Delete Missing in Database Item
+     * UPDATE class-image-renderer.php → render_missing_db_row()
      */
     private function render_missing_db_row($missing_id, $missing_data) {
         $url = $missing_data['url'];
@@ -317,21 +353,31 @@ class PIM_Image_Renderer {
         echo '<table style="width: 100%; border-collapse: collapse;">';
         echo '<tr>';
         
+        // Thumbnail placeholder
         echo '<td rowspan="4" style="width: 150px; padding: 10px; text-align: center; vertical-align: top;">';
         echo '<div class="pim-image-thumb-placeholder" style="background: #fff3cd; border: 2px dashed #ffc107; width: 130px; height: 130px; margin: 0 auto; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #999;">👻<br>DB Record<br>Missing</div>';
         echo '</td>';
         
+        // Header
         echo '<td style="padding: 20px 8px 0px 8px;">';
         echo '<h4 style="color: #dc3232; margin: 0;">Missing Attachment #' . $missing_id . '</h4>';
         echo '</td>';
         
+        // ✅ TWO BUTTONS: Create & Delete
         echo '<td rowspan="4" style="width: 200px; padding: 10px; text-align: center; vertical-align: top;">';
-        echo '<button type="button" class="button button-primary create-attachment-btn" data-image-id="' . $missing_id . '" data-url="' . esc_attr($url) . '" style="width: 100%; margin-bottom: 8px;">🔨 Create</button>';
-        echo '<button type="button" class="button button-secondary upload-and-create-btn" data-image-id="' . $missing_id . '" data-url="' . esc_attr($url) . '" style="width: 100%;">📤 Upload & Create</button>';
+        
+        // Create button
+        echo '<button type="button" class="button button-primary create-attachment-btn" data-url="' . esc_attr($url) . '" style="width: 100%; margin-bottom: 8px;">🔨 Create in Database</button>';
+        
+        // ✅ NEW: Delete button
+        echo '<button type="button" class="button button-link-delete delete-missing-item-btn" data-url="' . esc_attr($url) . '" data-missing-id="' . esc_attr($missing_id) . '" style="width: 100%; color: #d63638;">🗑️ Delete Item</button>';
+        
+        echo '<p style="font-size: 10px; color: #666; margin-top: 8px;">Delete: Removes from Elementor + disk cleanup</p>';
         echo '</td>';
         echo '</tr>';
         
-        echo '<tr><td style="padding: 0px 8px 0px 8px;"><div style="display: flex; justify-content: space-between;"><span style="font-size: 12px;"><strong>Filename:</strong> ' . esc_html($filename) . '</span><span style="font-size: 14px; color: #2271b1; font-weight: 600;">Create attachment first →</span></div></td></tr>';
+        // Info rows
+        echo '<tr><td style="padding: 0px 8px 0px 8px;"><div style="display: flex; justify-content: space-between;"><span style="font-size: 12px;"><strong>Filename:</strong> ' . esc_html($filename) . '</span></div></td></tr>';
         
         echo '<tr><td style="padding: 0px 8px 0px 8px;"><span style="font-size: 12px;"><strong>Source:</strong> ' . esc_html($missing_data['source']) . '</span></td></tr>';
         
@@ -339,7 +385,7 @@ class PIM_Image_Renderer {
         
         echo '</table></div>';
     }
-    
+
     /**
      * Size selector with "Non-Standard" radio option
      */
@@ -423,5 +469,41 @@ class PIM_Image_Renderer {
         return ob_get_clean();
     }
 
-
+    /**
+     * ✅ Render orphan file row
+     */
+    private function render_orphan_file_row($orphan) {
+        $filename = $orphan['file'];
+        $file_path = $orphan['path'];
+        $file_size = size_format($orphan['size'], 2);
+        
+        echo '<div style="border: 1px solid #ddd; border-left: 4px solid #999; margin: 10px 0; background: #f9f9f9;">';
+        echo '<table style="width: 100%; border-collapse: collapse;">';
+        echo '<tr>';
+        
+        // Icon placeholder
+        echo '<td rowspan="3" style="width: 80px; padding: 10px; text-align: center; vertical-align: top;">';
+        echo '<div style="width: 60px; height: 60px; background: #ddd; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 24px;">📄</div>';
+        echo '</td>';
+        
+        // Header
+        echo '<td style="padding: 15px 8px 0px 8px;">';
+        echo '<h4 style="color: #666; margin: 0;">Orphan File</h4>';
+        echo '</td>';
+        
+        // Delete button
+        echo '<td rowspan="3" style="width: 150px; padding: 10px; text-align: center; vertical-align: top;">';
+        echo '<button type="button" class="button button-link-delete delete-orphan-btn" data-file-path="' . esc_attr($file_path) . '" style="width: 100%; color: #d63638;">🗑️ Delete</button>';
+        echo '<p style="font-size: 10px; color: #999; margin-top: 5px;">Not used anywhere</p>';
+        echo '</td>';
+        echo '</tr>';
+        
+        // Filename
+        echo '<tr><td style="padding: 0px 8px;"><span style="font-size: 12px;"><strong>File:</strong> ' . esc_html($filename) . '</span></td></tr>';
+        
+        // File size
+        echo '<tr><td style="padding: 0px 8px 15px 8px;"><span style="font-size: 11px; color: #666;"><strong>Size:</strong> ' . esc_html($file_size) . '</span></td></tr>';
+        
+        echo '</table></div>';
+    }
 }

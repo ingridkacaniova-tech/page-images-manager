@@ -1,6 +1,8 @@
 /**
  * Missing Images Module
  * ✅ UPDATED: Uses updateSingleImageRow instead of refreshImages
+ * ✅ ISSUE 57 - SCENARIO 4: Delete Missing in Database Item
+ * ADD to missing-images.js
  */
 
 const PIM_MissingImages = (function($) {
@@ -9,7 +11,9 @@ const PIM_MissingImages = (function($) {
     function init() {
         $(document).on('click', '.generate-missing-btn', uploadAndGenerate);
         $(document).on('click', '.create-attachment-btn', createAttachment);
-        $(document).on('click', '.upload-and-create-btn', uploadAndCreate);
+        $(document).on('click', '.delete-orphan-btn', deleteOrphanFile);
+        $(document).on('click', '.delete-missing-item-btn', deleteMissingItem); 
+        $(document).on('click', '.delete-orphan-btn', deleteOrphanFile); 
     }
     
     // UPLOAD & GENERATE (for missing files)
@@ -140,6 +144,153 @@ const PIM_MissingImages = (function($) {
         });
     }
     
+    /**
+     * ✅ Delete Missing in Database item (Elementor + disk cleanup)
+     */
+    function deleteMissingItem() {
+        const $button = $(this);
+        const imageUrl = $button.data('url');
+        const missingId = $button.data('missing-id');
+        const pageId = PIM_Core.getCurrentPageId();
+        const $row = $button.closest('div[style*="border"]');
+        
+        if (!imageUrl || !pageId) {
+            PIM_Toast.error('Missing required data');
+            return;
+        }
+        
+        const filename = imageUrl.split('/').pop();
+        
+        // ✅ Confirmation dialog
+        PIM_Dialog.confirm({
+            title: '🗑️ Delete Missing Item?',
+            message: `This will:<br>
+                    • Remove reference from Elementor<br>
+                    • Delete file from disk (if exists)<br>
+                    <br>
+                    <strong>File:</strong> ${filename}<br>
+                    <br>
+                    Continue?`,
+            confirmText: '🗑️ Delete',
+            cancelText: 'Cancel',
+            isDangerous: true,
+            onConfirm: function() {
+                executeDeleteMissingItem($button, imageUrl, missingId, pageId, $row);
+            }
+        });
+    }
+
+    /**
+     * ✅ Execute missing item deletion
+     */
+    function executeDeleteMissingItem($button, imageUrl, missingId, pageId, $row) {
+        const toastId = PIM_Toast.loading('Deleting missing item...');
+        
+        $button.prop('disabled', true).text('⏳ Deleting...');
+        
+        PIM_Core.ajax('delete_missing_item',
+            {
+                image_url: imageUrl,
+                missing_id: missingId,
+                page_id: pageId
+            },
+            function(data) {
+                console.log('✅ Missing item deleted:', data);
+                
+                let message = 'Missing item deleted!';
+                if (data.file_deleted) {
+                    message += ' File removed from disk.';
+                }
+                if (data.elementor_updated) {
+                    message += ' Elementor updated.';
+                }
+                
+                PIM_Toast.update(toastId, message, 'success', 4000);
+                
+                // Remove row with animation
+                $row.fadeOut(300, function() {
+                    $(this).remove();
+                    
+                    // Check if section is now empty
+                    const $section = $('#missing-db-content');
+                    if ($section.find('div[style*="border"]').length === 0) {
+                        $('#section-missing-db').fadeOut(300, function() {
+                            $(this).remove();
+                        });
+                    }
+                });
+            },
+            function(error) {
+                console.error('❌ Delete failed:', error);
+                PIM_Toast.update(toastId, error, 'error');
+                $button.prop('disabled', false).text('🗑️ Delete Item');
+            }
+        );
+    }
+
+    /**
+     * ✅ Delete orphan file from disk
+     */
+    function deleteOrphanFile() {
+        const $button = $(this);
+        const filePath = $button.data('file-path');
+        const $row = $button.closest('div[style*="border"]');
+        
+        if (!filePath) {
+            PIM_Toast.error('Missing file path');
+            return;
+        }
+        
+        // ✅ Confirmation dialog
+        PIM_Dialog.confirm({
+            title: '🗑️ Delete Orphan File?',
+            message: 'This file is not used anywhere. Delete it permanently?',
+            confirmText: '🗑️ Delete',
+            cancelText: 'Cancel',
+            isDangerous: true,
+            onConfirm: function() {
+                executeDeleteOrphan($button, filePath, $row);
+            }
+        });
+    }
+
+    /**
+     * ✅ Execute orphan deletion
+     */
+    function executeDeleteOrphan($button, filePath, $row) {
+        const toastId = PIM_Toast.loading('Deleting orphan file...');
+        
+        $button.prop('disabled', true).text('⏳ Deleting...');
+        
+        PIM_Core.ajax('delete_orphan_file',
+            {
+                file_path: filePath
+            },
+            function(data) {
+                console.log('✅ Orphan deleted:', data);
+                PIM_Toast.update(toastId, 'Orphan file deleted!', 'success');
+                
+                // Remove row
+                $row.fadeOut(300, function() {
+                    $(this).remove();
+                    
+                    // Check if section is now empty
+                    const $section = $('#orphan-files-content');
+                    if ($section.find('div[style*="border"]').length === 0) {
+                        $('#section-orphan-files').fadeOut(300, function() {
+                            $(this).remove();
+                        });
+                    }
+                });
+            },
+            function(error) {
+                console.error('❌ Delete failed:', error);
+                PIM_Toast.update(toastId, error, 'error');
+                $button.prop('disabled', false).text('🗑️ Delete');
+            }
+        );
+    }
+
     return {
         init
     };

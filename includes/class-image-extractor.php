@@ -81,15 +81,46 @@ class PIM_Image_Extractor {
         $duplicate_handler = new PIM_Duplicate_Handler();
         $duplicates = $duplicate_handler->find_duplicates($valid_images, $missing_image_ids);
         
-        // Return data only - NO HTML
+        // ✅ Find orphan files (files on disk, not in DB, not in Elementor)
+        $orphan_files = $this->find_orphan_files($page_id, $valid_images, $missing_image_ids);
+        
+        // ✅ Add supplemental sources (RECOVERED - FILL IN)
+        foreach ($valid_images as $image_id) {
+            $supplemental = get_post_meta($image_id, '_pim_supplemental_sources', true);
+            
+            if (is_array($supplemental) && !empty($supplemental)) {
+                if (!isset($image_sources[$image_id])) {
+                    $image_sources[$image_id] = array();
+                }
+                
+                // Merge supplemental sources
+                $image_sources[$image_id] = array_merge(
+                    $image_sources[$image_id],
+                    $supplemental
+                );
+                
+                error_log("✅ Image #{$image_id}: Added supplemental sources: " . implode(', ', $supplemental));
+            }
+        }
+
+        // Remove duplicates in sources
+        foreach ($image_sources as $id => $sources) {
+            $image_sources[$id] = array_unique($sources);
+        }
+
+        // ✅ Find orphan files (files on disk, not in DB, not in Elementor)
+        $orphan_files = $this->find_orphan_files($page_id, $valid_images, $missing_image_ids);
+        
+        // Return data
         return array(
             'valid_images' => $valid_images,
             'missing_files' => $missing_files,
             'missing_image_ids' => $missing_image_ids,
+            'orphan_files' => $orphan_files,  // ✅ NEW
             'image_sources' => $image_sources,
             'duplicates' => $duplicates,
             'debug_info' => $debug_info,
-            'count' => count($valid_images) + count($missing_files) + count($missing_image_ids)
+            'count' => count($valid_images) + count($missing_files) + count($missing_image_ids) + count($orphan_files)
         );
     }
     
@@ -455,5 +486,96 @@ class PIM_Image_Extractor {
                 }
             }
         }
+    }
+
+    /**
+     * ✅ Find orphan files (exist on disk, not in DB, not in Elementor)
+     */
+    private function find_orphan_files($page_id, $valid_images, $missing_image_ids) {
+        PIM_Debug_Logger::enter('find_orphan_files', array('page_id' => $page_id));
+        
+        $orphans = array();
+        
+        // Get upload directory for this page
+        $page_date = get_post_field('post_date', $page_id);
+        $year = date('Y', strtotime($page_date));
+        $month = date('m', strtotime($page_date));
+        
+        $upload_dir = wp_upload_dir();
+        $page_upload_path = $upload_dir['basedir'] . '/' . $year . '/' . $month;
+        
+        if (!is_dir($page_upload_path)) {
+            PIM_Debug_Logger::warning('Upload directory does not exist', array('path' => $page_upload_path));
+            return $orphans;
+        }
+        
+        // Get all image files
+        $patterns = array(
+            $page_upload_path . '/*.jpg',
+            $page_upload_path . '/*.jpeg',
+            $page_upload_path . '/*.png',
+            $page_upload_path . '/*.gif',
+            $page_upload_path . '/*.webp'
+        );
+        
+        $all_files = array();
+        foreach ($patterns as $pattern) {
+            $files = glob($pattern);
+            if ($files) {
+                $all_files = array_merge($all_files, $files);
+            }
+        }
+        
+        PIM_Debug_Logger::log('Found files on disk', array('count' => count($all_files)));
+        
+        // Build list of files that ARE used
+        $used_files = array();
+        
+        // From valid images
+        foreach ($valid_images as $image_id) {
+            $main_file = get_attached_file($image_id);
+            if ($main_file) {
+                $used_files[] = $main_file;
+            }
+            
+            // Thumbnails
+            $metadata = wp_get_attachment_metadata($image_id);
+            if (isset($metadata['sizes']) && is_array($metadata['sizes'])) {
+                $dir = dirname($main_file);
+                foreach ($metadata['sizes'] as $size_data) {
+                    if (isset($size_data['file'])) {
+                        $used_files[] = $dir . '/' . $size_data['file'];
+                    }
+                }
+            }
+        }
+        
+        // From missing in database (URLs)
+        foreach ($missing_image_ids as $missing_data) {
+            $url = $missing_data['url'];
+            $file_path = str_replace($upload_dir['baseurl'], $upload_dir['basedir'], $url);
+            if (file_exists($file_path)) {
+                $used_files[] = $file_path;
+            }
+        }
+        
+        PIM_Debug_Logger::log('Files in use', array('count' => count($used_files)));
+        
+        // Find orphans
+        foreach ($all_files as $file) {
+            if (!in_array($file, $used_files)) {
+                $orphans[] = array(
+                    'file' => basename($file),
+                    'path' => $file,
+                    'size' => filesize($file),
+                    'url' => str_replace($upload_dir['basedir'], $upload_dir['baseurl'], $file)
+                );
+            }
+        }
+        
+        PIM_Debug_Logger::success('Found orphan files', array('count' => count($orphans)));
+        PIM_Debug_Logger::exit_function('find_orphan_files');
+        
+        return $orphans;
     }
 }

@@ -349,41 +349,6 @@ class PIM_Thumbnail_Generator {
     }
 
     /**
-     * Replace URLs in Elementor data
-     */
-    private function replace_urls_in_elementor($data, $image_id, $thumbnail_urls) {
-        if (!is_array($data)) {
-            return $data;
-        }
-
-        foreach ($data as $key => &$value) {
-            if (is_array($value) && isset($value['id']) && intval($value['id']) === $image_id) {
-                $source = $this->detect_source_from_key($key);
-                if (isset($thumbnail_urls[$source])) {
-                    $value['url'] = $thumbnail_urls[$source];
-                }
-            }
-
-            if (in_array($key, array('carousel', 'gallery', 'wp_gallery')) && is_array($value)) {
-                foreach ($value as &$item) {
-                    if (isset($item['id']) && intval($item['id']) === $image_id) {
-                        $source = isset($thumbnail_urls['carousel']) ? 'carousel' : 'gallery';
-                        if (isset($thumbnail_urls[$source])) {
-                            $item['url'] = $thumbnail_urls[$source];
-                        }
-                    }
-                }
-            }
-
-            if (is_array($value)) {
-                $value = $this->replace_urls_in_elementor($value, $image_id, $thumbnail_urls);
-            }
-        }
-
-        return $data;
-    }
-
-    /**
      * Detect source type from key
      */
     private function detect_source_from_key($key) {

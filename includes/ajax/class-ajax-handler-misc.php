@@ -35,6 +35,9 @@ class PIM_Ajax_Handler_Misc {
         add_action('wp_ajax_save_custom_source', array($this, 'save_custom_source'));
         add_action('wp_ajax_get_custom_sources', array($this, 'get_custom_sources'));
         add_action('wp_ajax_get_ghost_files', array($this, 'get_ghost_files'));
+
+        add_action('wp_ajax_delete_missing_item', array($this, 'delete_missing_item'));
+        add_action('wp_ajax_delete_orphan_file', array($this, 'delete_orphan_file'));
     }
 
     /**
@@ -176,10 +179,16 @@ class PIM_Ajax_Handler_Misc {
     }
 
     /**
-     * EXISTING METHODS (unchanged)
+     * ✅ ISSUE 57 - SCENARIO 2A: File does not exist
+     * ✅ ISSUE 57 - SCENARIO 2B: Filename mismatch + orphan cleanup
      */
     public function create_attachment_from_url() {
-        PIM_Debug_Logger::log_session_start('create_attachment_from_url');
+        $session_id = PIM_Debug_Logger::log_session_start('create_attachment_from_url');
+        
+        PIM_Debug_Logger::enter('create_attachment_from_url', array(
+            'has_image_url' => isset($_POST['image_url']),
+            'has_page_id' => isset($_POST['page_id'])
+        ));
         
         check_ajax_referer('page_images_manager', 'nonce');
         
@@ -187,16 +196,441 @@ class PIM_Ajax_Handler_Misc {
         $page_id = isset($_POST['page_id']) ? intval($_POST['page_id']) : 0;
         
         if (!$image_url || !$page_id) {
+            PIM_Debug_Logger::error('Missing required data');
+            PIM_Debug_Logger::exit_function('create_attachment_from_url');
             wp_send_json_error('Missing required data');
         }
 
-        $result = $this->generator->create_attachment_from_url($image_url, $page_id);
-        
-        if (is_wp_error($result)) {
-            wp_send_json_error($result->get_error_message());
-        }
+        PIM_Debug_Logger::log('Processing Missing in Database item', array(
+            'url' => $image_url,
+            'page_id' => $page_id
+        ));
 
-        wp_send_json_success($result);
+        // ✅ Convert URL to file path
+        $upload_dir = wp_upload_dir();
+        $file_path = str_replace($upload_dir['baseurl'], $upload_dir['basedir'], $image_url);
+        
+        PIM_Debug_Logger::file_op('Checking if file exists', $file_path);
+        
+        // ✅✅✅ SCENARIO 2B: FILE MISMATCH - Check for orphans ✅✅✅
+        if (!file_exists($file_path)) {
+            PIM_Debug_Logger::warning('Exact file does not exist - checking for orphans');
+            
+            $filename = basename($file_path);
+            $base_name = $this->get_base_filename($filename);
+            $dir = dirname($file_path);
+            $extension = pathinfo($filename, PATHINFO_EXTENSION);
+            
+            // Find all files with same base name
+            $pattern = $dir . '/' . $base_name . '*.' . $extension;
+            $found_files = glob($pattern);
+            
+            PIM_Debug_Logger::log('Found files with base name', array(
+                'pattern' => $pattern,
+                'count' => count($found_files),
+                'files' => array_map('basename', $found_files)
+            ));
+            
+            if (!empty($found_files)) {
+                // ✅ Check each file - is it an orphan?
+                $orphans_deleted = $this->cleanup_orphan_files($found_files, $base_name);
+                
+                PIM_Debug_Logger::log('Orphan cleanup complete', array(
+                    'deleted' => $orphans_deleted
+                ));
+            }
+            
+            // ✅ After cleanup, exact file STILL doesn't exist → SCENARIO 1
+            if (!file_exists($file_path)) {
+                PIM_Debug_Logger::warning('File still missing after orphan cleanup - SCENARIO 1');
+                
+                $attachment_id = $this->create_empty_attachment($image_url, $page_id);
+                
+                // ... (Scenario 1 logic)
+                
+                wp_send_json_success(array(
+                    'attachment_id' => $attachment_id,
+                    'mode' => 'empty_attachment',
+                    'orphans_deleted' => $orphans_deleted,
+                    'message' => sprintf(
+                        'Created empty attachment #%d. Deleted %d orphan file(s).',
+                        $attachment_id,
+                        $orphans_deleted
+                    )
+                ));
+            }
+        }
+        // ✅✅✅ SCENARIO 2A: File does not exist ✅✅✅
+        if (!file_exists($file_path)) {
+            PIM_Debug_Logger::warning('File does not exist - SCENARIO 2A: Creating empty attachment');
+            
+            $attachment_id = $this->create_empty_attachment($image_url, $page_id);
+            
+            if (is_wp_error($attachment_id)) {
+                PIM_Debug_Logger::error('Failed to create empty attachment', $attachment_id->get_error_message());
+                PIM_Debug_Logger::exit_function('create_attachment_from_url');
+                wp_send_json_error($attachment_id->get_error_message());
+            }
+            
+            // ✅ Update Elementor JSON
+            $this->update_elementor_url_to_id($page_id, $image_url, $attachment_id);
+            
+            PIM_Debug_Logger::exit_function('create_attachment_from_url', array(
+                'mode' => 'empty_attachment',
+                'attachment_id' => $attachment_id
+            ));
+            
+            wp_send_json_success(array(
+                'attachment_id' => $attachment_id,
+                'url' => '',  // No URL (file missing)
+                'mode' => 'empty_attachment',
+                'message' => sprintf(
+                    'Created empty attachment #%d. File missing - will appear in Missing Files section.',
+                    $attachment_id
+                )
+            ));
+        }
+        
+        // ✅✅✅ SCENARIO 2A: FILE EXISTS ✅✅✅
+        PIM_Debug_Logger::success('File exists on server - SCENARIO 2A');
+        
+        $filename = basename($file_path);
+        
+        // Check for consolidation...
+        $base_name = $this->get_base_filename($filename);
+        $existing_attachment = $this->find_attachment_by_base_name($base_name);
+        
+        if ($existing_attachment) {
+            // ✅ CONSOLIDATION MODE
+            PIM_Debug_Logger::success('Found existing attachment for consolidation', array(
+                'existing_id' => $existing_attachment->ID,
+                'existing_file' => basename($existing_attachment->file_path)
+            ));
+            
+            $attachment_id = intval($existing_attachment->ID);
+            $result = $this->add_thumbnail_to_existing_attachment(
+                $attachment_id, 
+                $file_path,
+                $filename,
+                $image_url,
+                $page_id
+            );
+            
+            PIM_Debug_Logger::exit_function('create_attachment_from_url', array(
+                'mode' => 'consolidated',
+                'attachment_id' => $attachment_id
+            ));
+            
+            wp_send_json_success($result);
+            
+        } else {
+            // ✅ NORMAL MODE - Create new attachment
+            PIM_Debug_Logger::log('No existing attachment found, creating new one');
+            
+            $attachment_id = $this->create_new_attachment_from_file($file_path, $page_id);
+            
+            if (is_wp_error($attachment_id)) {
+                PIM_Debug_Logger::error('Failed to create attachment', $attachment_id->get_error_message());
+                PIM_Debug_Logger::exit_function('create_attachment_from_url');
+                wp_send_json_error($attachment_id->get_error_message());
+            }
+            
+            // ✅ Update Elementor JSON
+            $this->update_elementor_url_to_id($page_id, $image_url, $attachment_id);
+            
+            PIM_Debug_Logger::exit_function('create_attachment_from_url', array(
+                'mode' => 'new',
+                'attachment_id' => $attachment_id
+            ));
+            
+            wp_send_json_success(array(
+                'attachment_id' => $attachment_id,
+                'url' => wp_get_attachment_url($attachment_id),
+                'mode' => 'new'
+            ));
+        }
+    }
+
+    /**
+     * ✅ Extract base filename (remove dimensions, -scaled, etc.)
+     */
+    private function get_base_filename($filename) {
+        // Remove extension
+        $name = preg_replace('/\.(jpg|jpeg|png|gif|webp)$/i', '', $filename);
+        
+        // Remove -scaled
+        $name = preg_replace('/-scaled$/', '', $name);
+        
+        // Remove dimensions (-250x0, -1920x1080, etc.)
+        $name = preg_replace('/-\d+x\d+$/', '', $name);
+        
+        // Remove trailing numbers (-1, -2, etc.)
+        $name = preg_replace('/-\d+$/', '', $name);
+        
+        return $name;
+    }
+
+    /**
+     * ✅ Find existing attachment by base filename
+     */
+    private function find_attachment_by_base_name($base_name) {
+        global $wpdb;
+        
+        $query = $wpdb->prepare("
+            SELECT p.ID, pm.meta_value AS file_path
+            FROM {$wpdb->posts} p
+            JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID
+            WHERE p.post_type = 'attachment'
+            AND pm.meta_key = '_wp_attached_file'
+            AND pm.meta_value LIKE %s
+            ORDER BY p.ID DESC
+            LIMIT 1
+        ", '%' . $wpdb->esc_like($base_name) . '%');
+        
+        return $wpdb->get_row($query);
+    }
+
+    /**
+     * ✅ Add thumbnail to existing attachment (CONSOLIDATION)
+     */
+    private function add_thumbnail_to_existing_attachment($attachment_id, $file_path, $filename, $image_url, $page_id) {
+        PIM_Debug_Logger::enter('add_thumbnail_to_existing_attachment', array(
+            'attachment_id' => $attachment_id,
+            'file' => $filename
+        ));
+        
+        // Get current metadata
+        wp_cache_delete($attachment_id, 'post_meta');
+        $metadata = wp_get_attachment_metadata($attachment_id);
+        
+        if (!$metadata) {
+            $metadata = array('sizes' => array());
+        }
+        if (!isset($metadata['sizes'])) {
+            $metadata['sizes'] = array();
+        }
+        
+        // Get image dimensions
+        $image_size = @getimagesize($file_path);
+        
+        if (!$image_size) {
+            PIM_Debug_Logger::error('Could not get image dimensions');
+            wp_send_json_error('Could not get image dimensions');
+        }
+        
+        $width = $image_size[0];
+        $height = $image_size[1];
+        
+        PIM_Debug_Logger::log('Image dimensions', array('width' => $width, 'height' => $height));
+        
+        // ✅ Try to match dimensions to existing size
+        $matched_size = $this->match_dimensions_to_size($width, $height);
+        
+        if ($matched_size) {
+            $size_name = $matched_size;
+            PIM_Debug_Logger::success('Matched to standard size', array('size' => $size_name));
+        } else {
+            $size_name = 'non-standard-' . $width . 'x' . $height;
+            PIM_Debug_Logger::log('No match, using non-standard', array('size' => $size_name));
+        }
+        
+        // Add to metadata
+        $metadata['sizes'][$size_name] = array(
+            'file' => $filename,
+            'width' => $width,
+            'height' => $height,
+            'mime-type' => $image_size['mime']
+        );
+        
+        wp_update_attachment_metadata($attachment_id, $metadata);
+        
+        PIM_Debug_Logger::success('Added thumbnail to metadata', array('size_name' => $size_name));
+        
+        // ✅ Add "RECOVERED - FILL IN" source
+        $this->add_supplemental_source($attachment_id, 'RECOVERED - FILL IN');
+        
+        // ✅ Update Elementor JSON
+        $this->update_elementor_url_to_id($page_id, $image_url, $attachment_id);
+        
+        PIM_Debug_Logger::exit_function('add_thumbnail_to_existing_attachment', array(
+            'success' => true,
+            'size_added' => $size_name
+        ));
+        
+        return array(
+            'attachment_id' => $attachment_id,
+            'url' => wp_get_attachment_url($attachment_id),
+            'mode' => 'consolidated',
+            'size_added' => $size_name,
+            'matched_size' => $matched_size,
+            'message' => sprintf(
+                'Consolidated into existing attachment #%d, added size: %s',
+                $attachment_id,
+                $size_name
+            )
+        );
+    }
+
+    /**
+     * ✅ Match dimensions to existing registered size
+     */
+    private function match_dimensions_to_size($width, $height) {
+        $all_sizes = wp_get_registered_image_subsizes();
+        
+        foreach ($all_sizes as $size_name => $size_data) {
+            $size_width = $size_data['width'] ?? 0;
+            $size_height = $size_data['height'] ?? 0;
+            
+            // Exact match
+            if ($width == $size_width && $height == $size_height) {
+                return $size_name;
+            }
+            
+            // Match with height = 0 (proportional width)
+            if ($size_height == 0 && $width == $size_width) {
+                return $size_name;
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * ✅ Add supplemental source (RECOVERED - FILL IN)
+     */
+    private function add_supplemental_source($attachment_id, $source_name) {
+        $supplemental_sources = get_post_meta($attachment_id, '_pim_supplemental_sources', true);
+        
+        if (!is_array($supplemental_sources)) {
+            $supplemental_sources = array();
+        }
+        
+        if (!in_array($source_name, $supplemental_sources)) {
+            $supplemental_sources[] = $source_name;
+            update_post_meta($attachment_id, '_pim_supplemental_sources', $supplemental_sources);
+            
+            error_log("✅ Added supplemental source '{$source_name}' to attachment #{$attachment_id}");
+        }
+    }
+
+    /**
+     * ✅ Create new attachment from existing file (NORMAL MODE)
+     */
+    private function create_new_attachment_from_file($file_path, $page_id) {
+        require_once(ABSPATH . 'wp-admin/includes/image.php');
+        require_once(ABSPATH . 'wp-admin/includes/file.php');
+        
+        $filename = basename($file_path);
+        $filetype = wp_check_filetype($filename, null);
+        
+        $attachment = array(
+            'post_mime_type' => $filetype['type'],
+            'post_title' => sanitize_file_name(pathinfo($filename, PATHINFO_FILENAME)),
+            'post_content' => '',
+            'post_status' => 'inherit',
+            'post_parent' => $page_id
+        );
+        
+        $attachment_id = wp_insert_attachment($attachment, $file_path, $page_id);
+        
+        if (is_wp_error($attachment_id)) {
+            return $attachment_id;
+        }
+        
+        // ✅ Generate basic metadata (NO thumbnails)
+        $image_size = @getimagesize($file_path);
+        
+        if ($image_size) {
+            $upload_dir = wp_upload_dir();
+            $metadata = array(
+                'width' => $image_size[0],
+                'height' => $image_size[1],
+                'file' => str_replace($upload_dir['basedir'] . '/', '', $file_path),
+                'sizes' => array(),  // ✅ Empty - no thumbnails
+                'image_meta' => array(
+                    'aperture' => '0',
+                    'credit' => '',
+                    'camera' => '',
+                    'caption' => '',
+                    'created_timestamp' => '0',
+                    'copyright' => '',
+                    'focal_length' => '0',
+                    'iso' => '0',
+                    'shutter_speed' => '0',
+                    'title' => '',
+                    'orientation' => '0',
+                    'keywords' => array()
+                )
+            );
+            
+            wp_update_attachment_metadata($attachment_id, $metadata);
+            
+            error_log("✅ Created attachment #{$attachment_id} with basic metadata (no thumbnails)");
+        }
+        
+        return $attachment_id;
+    }
+
+    /**
+     * ✅ Update Elementor JSON - replace URL/ID with new attachment ID
+     */
+    private function update_elementor_url_to_id($page_id, $old_url, $new_id) {
+        $elementor_data = get_post_meta($page_id, '_elementor_data', true);
+        
+        if (empty($elementor_data)) {
+            return false;
+        }
+        
+        $data = json_decode($elementor_data, true);
+        if (!is_array($data)) {
+            return false;
+        }
+        
+        // Recursively find and replace
+        $replaced = $this->replace_url_with_id_recursive($data, $old_url, $new_id);
+        
+        if ($replaced) {
+            update_post_meta($page_id, '_elementor_data', wp_slash(json_encode($data)));
+            
+            if (class_exists('\\Elementor\\Plugin')) {
+                \Elementor\Plugin::$instance->files_manager->clear_cache();
+            }
+            
+            error_log("✅ Elementor updated: {$old_url} → ID {$new_id}");
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
+     * ✅ Recursive URL → ID replacement in Elementor JSON
+     */
+    private function replace_url_with_id_recursive(&$data, $url, $new_id) {
+        $replaced = false;
+        
+        if (!is_array($data)) {
+            return false;
+        }
+        
+        foreach ($data as $key => &$value) {
+            if (is_array($value)) {
+                // Check if this element has the URL
+                if (isset($value['url']) && $value['url'] === $url) {
+                    $old_id = isset($value['id']) ? $value['id'] : 'none';
+                    $value['id'] = $new_id;
+                    $replaced = true;
+                    error_log("   ✅ Replaced ID {$old_id} → {$new_id} for URL");
+                }
+                
+                // Recurse
+                if ($this->replace_url_with_id_recursive($value, $url, $new_id)) {
+                    $replaced = true;
+                }
+            }
+        }
+        
+        return $replaced;
     }
 
     public function upload_and_create_attachment() {
@@ -424,5 +858,435 @@ class PIM_Ajax_Handler_Misc {
             'locked_sizes' => $locked_sizes,
             'is_locked' => !empty($locked_sizes)
         ));
+    }
+
+    /**
+     * ✅ Delete Missing in Database item (Elementor cleanup + disk cleanup)
+     */
+    public function delete_missing_item() {
+        $session_id = PIM_Debug_Logger::log_session_start('delete_missing_item');
+        
+        PIM_Debug_Logger::enter('delete_missing_item', array(
+            'has_image_url' => isset($_POST['image_url']),
+            'has_page_id' => isset($_POST['page_id'])
+        ));
+        
+        check_ajax_referer('page_images_manager', 'nonce');
+        
+        $image_url = isset($_POST['image_url']) ? sanitize_text_field($_POST['image_url']) : '';
+        $missing_id = isset($_POST['missing_id']) ? intval($_POST['missing_id']) : 0;
+        $page_id = isset($_POST['page_id']) ? intval($_POST['page_id']) : 0;
+        
+        if (!$image_url || !$page_id) {
+            PIM_Debug_Logger::error('Missing required data');
+            PIM_Debug_Logger::exit_function('delete_missing_item');
+            wp_send_json_error('Missing required data');
+        }
+        
+        PIM_Debug_Logger::log('Deleting missing item', array(
+            'url' => $image_url,
+            'missing_id' => $missing_id,
+            'page_id' => $page_id
+        ));
+        
+        $file_deleted = false;
+        $elementor_updated = false;
+        
+        // ✅ STEP 1: Delete file from disk (if exists)
+        $upload_dir = wp_upload_dir();
+        $file_path = str_replace($upload_dir['baseurl'], $upload_dir['basedir'], $image_url);
+        
+        if (file_exists($file_path)) {
+            PIM_Debug_Logger::log('File exists, attempting deletion', array('path' => $file_path));
+            
+            if (@unlink($file_path)) {
+                $file_deleted = true;
+                PIM_Debug_Logger::success('File deleted from disk', array('file' => basename($file_path)));
+            } else {
+                PIM_Debug_Logger::warning('Failed to delete file', array('file' => basename($file_path)));
+            }
+        } else {
+            PIM_Debug_Logger::log('File does not exist on disk (already missing)');
+        }
+        
+        // ✅ STEP 2: Remove from Elementor JSON
+        PIM_Debug_Logger::log('Removing from Elementor data...');
+        $elementor_updated = $this->remove_image_from_elementor($page_id, $image_url, $missing_id);
+        
+        if ($elementor_updated) {
+            PIM_Debug_Logger::success('Removed from Elementor data');
+        } else {
+            PIM_Debug_Logger::warning('Not found in Elementor data (or already removed)');
+        }
+        
+        // ✅ STEP 3: Clear Elementor cache
+        if (class_exists('\\Elementor\\Plugin')) {
+            \Elementor\Plugin::$instance->files_manager->clear_cache();
+            PIM_Debug_Logger::log('Elementor cache cleared');
+        }
+        
+        PIM_Debug_Logger::exit_function('delete_missing_item', array(
+            'file_deleted' => $file_deleted,
+            'elementor_updated' => $elementor_updated
+        ));
+        
+        wp_send_json_success(array(
+            'file_deleted' => $file_deleted,
+            'elementor_updated' => $elementor_updated,
+            'message' => sprintf(
+                'Missing item deleted. %s %s',
+                $file_deleted ? 'File removed.' : 'File was already missing.',
+                $elementor_updated ? 'Elementor updated.' : 'Not found in Elementor.'
+            )
+        ));
+    }
+
+    /**
+     * ✅ Remove image from Elementor JSON by URL or ID
+     */
+    private function remove_image_from_elementor($page_id, $image_url, $missing_id) {
+        $elementor_data = get_post_meta($page_id, '_elementor_data', true);
+        
+        if (empty($elementor_data)) {
+            return false;
+        }
+        
+        $data = json_decode($elementor_data, true);
+        if (!is_array($data)) {
+            return false;
+        }
+        
+        // ✅ Recursively find and remove
+        $removed = $this->remove_image_recursive($data, $image_url, $missing_id);
+        
+        if ($removed) {
+            update_post_meta($page_id, '_elementor_data', wp_slash(json_encode($data)));
+            error_log("✅ Removed image from Elementor: URL={$image_url}, ID={$missing_id}");
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
+     * ✅ Recursive removal from Elementor JSON
+     */
+    private function remove_image_recursive(&$data, $url, $missing_id) {
+        $removed = false;
+        
+        if (!is_array($data)) {
+            return false;
+        }
+        
+        foreach ($data as $key => &$value) {
+            if (is_array($value)) {
+                // ✅ Check if this is an image element matching our criteria
+                $is_match = false;
+                
+                // Match by URL
+                if (isset($value['url']) && $value['url'] === $url) {
+                    $is_match = true;
+                }
+                
+                // Match by ID (if provided)
+                if ($missing_id > 0 && isset($value['id']) && intval($value['id']) === $missing_id) {
+                    $is_match = true;
+                }
+                
+                if ($is_match) {
+                    // ✅ Found it! Remove this element
+                    // Instead of removing, set to empty array (preserves structure)
+                    $value = array();
+                    $removed = true;
+                    error_log("   ✅ Removed image element from Elementor");
+                    continue;
+                }
+                
+                // ✅ Special handling for galleries/carousels (array of images)
+                if (in_array($key, array('carousel', 'gallery', 'wp_gallery'))) {
+                    foreach ($value as $idx => $item) {
+                        if (is_array($item)) {
+                            $item_match = false;
+                            
+                            if (isset($item['url']) && $item['url'] === $url) {
+                                $item_match = true;
+                            }
+                            
+                            if ($missing_id > 0 && isset($item['id']) && intval($item['id']) === $missing_id) {
+                                $item_match = true;
+                            }
+                            
+                            if ($item_match) {
+                                unset($value[$idx]);
+                                $removed = true;
+                                error_log("   ✅ Removed from {$key} array");
+                            }
+                        }
+                    }
+                    
+                    // Re-index array after removal
+                    if ($removed) {
+                        $value = array_values($value);
+                    }
+                }
+                
+                // ✅ Recurse deeper
+                if ($this->remove_image_recursive($value, $url, $missing_id)) {
+                    $removed = true;
+                }
+            }
+        }
+        
+        return $removed;
+    }
+
+    /**
+     * ✅ Delete orphan file from disk
+     */
+    public function delete_orphan_file() {
+        $session_id = PIM_Debug_Logger::log_session_start('delete_orphan_file');
+        
+        PIM_Debug_Logger::enter('delete_orphan_file', array(
+            'has_file_path' => isset($_POST['file_path'])
+        ));
+        
+        check_ajax_referer('page_images_manager', 'nonce');
+        
+        $file_path = isset($_POST['file_path']) ? sanitize_text_field($_POST['file_path']) : '';
+        
+        if (!$file_path) {
+            PIM_Debug_Logger::error('Missing file path');
+            PIM_Debug_Logger::exit_function('delete_orphan_file');
+            wp_send_json_error('Missing file path');
+        }
+        
+        PIM_Debug_Logger::log('Attempting to delete orphan', array('path' => $file_path));
+        
+        // ✅ Security: Verify file is in uploads directory
+        $upload_dir = wp_upload_dir();
+        if (strpos($file_path, $upload_dir['basedir']) !== 0) {
+            PIM_Debug_Logger::error('Security: File not in uploads directory');
+            PIM_Debug_Logger::exit_function('delete_orphan_file');
+            wp_send_json_error('Security error: File not in uploads directory');
+        }
+        
+        // ✅ Verify file exists
+        if (!file_exists($file_path)) {
+            PIM_Debug_Logger::warning('File does not exist');
+            PIM_Debug_Logger::exit_function('delete_orphan_file');
+            wp_send_json_error('File does not exist');
+        }
+        
+        // ✅ Double-check it's really an orphan (not in any attachment metadata)
+        if ($this->is_file_in_use($file_path)) {
+            PIM_Debug_Logger::error('File is in use - cannot delete');
+            PIM_Debug_Logger::exit_function('delete_orphan_file');
+            wp_send_json_error('File is in use and cannot be deleted');
+        }
+        
+        // ✅ Delete file
+        if (@unlink($file_path)) {
+            PIM_Debug_Logger::success('Orphan file deleted', array('file' => basename($file_path)));
+            
+            PIM_Debug_Logger::exit_function('delete_orphan_file', array('success' => true));
+            
+            wp_send_json_success(array(
+                'message' => 'Orphan file deleted: ' . basename($file_path)
+            ));
+        } else {
+            PIM_Debug_Logger::error('Failed to delete file');
+            PIM_Debug_Logger::exit_function('delete_orphan_file');
+            wp_send_json_error('Failed to delete file');
+        }
+    }
+
+    /**
+     * ✅ Check if file is used in any attachment metadata
+     */
+    private function is_file_in_use($file_path) {
+        global $wpdb;
+        
+        $filename = basename($file_path);
+        
+        // Check main files
+        $query = $wpdb->prepare("
+            SELECT COUNT(*) FROM {$wpdb->postmeta}
+            WHERE meta_key = '_wp_attached_file'
+            AND meta_value LIKE %s
+        ", '%' . $wpdb->esc_like($filename) . '%');
+        
+        $main_file_count = $wpdb->get_var($query);
+        
+        if ($main_file_count > 0) {
+            return true;
+        }
+        
+        // Check thumbnail files in metadata
+        $query = $wpdb->prepare("
+            SELECT meta_value FROM {$wpdb->postmeta}
+            WHERE meta_key = '_wp_attachment_metadata'
+            AND meta_value LIKE %s
+        ", '%' . $wpdb->esc_like($filename) . '%');
+        
+        $metadata_entries = $wpdb->get_results($query);
+        
+        foreach ($metadata_entries as $entry) {
+            $metadata = maybe_unserialize($entry->meta_value);
+            if (isset($metadata['sizes']) && is_array($metadata['sizes'])) {
+                foreach ($metadata['sizes'] as $size_data) {
+                    if (isset($size_data['file']) && $size_data['file'] === $filename) {
+                        return true;
+                    }
+                }
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * ✅ Create empty attachment (file missing)
+     */
+    private function create_empty_attachment($image_url, $page_id) {
+        PIM_Debug_Logger::enter('create_empty_attachment', array(
+            'url' => $image_url,
+            'page_id' => $page_id
+        ));
+        
+        // Extract filename from URL
+        $filename = basename(parse_url($image_url, PHP_URL_PATH));
+        $filetype = wp_check_filetype($filename, null);
+        
+        if (!$filetype['type']) {
+            $filetype['type'] = 'image/jpeg';  // Default
+        }
+        
+        PIM_Debug_Logger::log('Creating empty attachment', array(
+            'filename' => $filename,
+            'mime_type' => $filetype['type']
+        ));
+        
+        // ✅ Create attachment WITHOUT file
+        $attachment = array(
+            'post_mime_type' => $filetype['type'],
+            'post_title' => sanitize_file_name(pathinfo($filename, PATHINFO_FILENAME)),
+            'post_content' => '',
+            'post_status' => 'inherit',
+            'post_parent' => $page_id,
+            'guid' => $image_url  // ✅ Use URL as GUID (no file exists)
+        );
+        
+        // ✅ Insert WITHOUT file path (2nd parameter = empty)
+        $attachment_id = wp_insert_attachment($attachment, '', $page_id);
+        
+        if (is_wp_error($attachment_id)) {
+            PIM_Debug_Logger::error('wp_insert_attachment failed', $attachment_id->get_error_message());
+            return $attachment_id;
+        }
+        
+        PIM_Debug_Logger::success('Empty attachment created', array('id' => $attachment_id));
+        
+        // ✅ Set EMPTY metadata (no file, no dimensions)
+        $metadata = array(
+            'file' => '',  // Empty - no file
+            'width' => 0,
+            'height' => 0,
+            'sizes' => array(),
+            'image_meta' => array()
+        );
+        
+        wp_update_attachment_metadata($attachment_id, $metadata);
+        
+        PIM_Debug_Logger::log('Set empty metadata');
+        
+        // ✅ Store original URL for reference
+        update_post_meta($attachment_id, '_pim_original_url', $image_url);
+        update_post_meta($attachment_id, '_pim_file_missing', true);
+        
+        PIM_Debug_Logger::success('Marked as file missing');
+        
+        PIM_Debug_Logger::exit_function('create_empty_attachment', array(
+            'attachment_id' => $attachment_id
+        ));
+        
+        return $attachment_id;
+    }
+
+    /**
+     * ✅ Cleanup orphan files (not used in any attachment metadata)
+     */
+    private function cleanup_orphan_files($files, $base_name) {
+        global $wpdb;
+        
+        PIM_Debug_Logger::enter('cleanup_orphan_files', array(
+            'files_count' => count($files),
+            'base_name' => $base_name
+        ));
+        
+        $deleted_count = 0;
+        
+        // ✅ Get ALL attachments with this base name
+        $query = $wpdb->prepare("
+            SELECT p.ID, pm.meta_value AS metadata
+            FROM {$wpdb->posts} p
+            LEFT JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = '_wp_attachment_metadata'
+            WHERE p.post_type = 'attachment'
+            AND p.guid LIKE %s
+        ", '%' . $wpdb->esc_like($base_name) . '%');
+        
+        $attachments = $wpdb->get_results($query);
+        
+        PIM_Debug_Logger::log('Found attachments with base name', array(
+            'count' => count($attachments)
+        ));
+        
+        // ✅ Build list of files that ARE used
+        $used_files = array();
+        
+        foreach ($attachments as $att) {
+            // Main file
+            $main_file = get_attached_file($att->ID);
+            if ($main_file) {
+                $used_files[] = $main_file;
+            }
+            
+            // Thumbnail files
+            if ($att->metadata) {
+                $metadata = maybe_unserialize($att->metadata);
+                if (isset($metadata['sizes']) && is_array($metadata['sizes'])) {
+                    $dir = dirname($main_file);
+                    foreach ($metadata['sizes'] as $size_data) {
+                        if (isset($size_data['file'])) {
+                            $used_files[] = $dir . '/' . $size_data['file'];
+                        }
+                    }
+                }
+            }
+        }
+        
+        PIM_Debug_Logger::log('Files in use', array(
+            'count' => count($used_files)
+        ));
+        
+        // ✅ Delete files that are NOT used
+        foreach ($files as $file) {
+            if (!in_array($file, $used_files)) {
+                // This is an orphan!
+                if (file_exists($file) && @unlink($file)) {
+                    $deleted_count++;
+                    PIM_Debug_Logger::success('Deleted orphan', array('file' => basename($file)));
+                } else {
+                    PIM_Debug_Logger::warning('Failed to delete', array('file' => basename($file)));
+                }
+            } else {
+                PIM_Debug_Logger::log('File in use, keeping', array('file' => basename($file)));
+            }
+        }
+        
+        PIM_Debug_Logger::exit_function('cleanup_orphan_files', array(
+            'deleted' => $deleted_count
+        ));
+        
+        return $deleted_count;
     }
 }
