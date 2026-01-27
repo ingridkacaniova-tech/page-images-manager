@@ -5,6 +5,7 @@
  * REFACTORED VERSION:
  * - ✅ All AJAX handling delegated to ajax/ handlers
  * - ✅ Clean separation of concerns
+ * - ✅ ISSUE 60: Added progress-bar.css module
  */
 class Page_Images_Manager {
     
@@ -47,6 +48,7 @@ class Page_Images_Manager {
     /**
      * Enqueue modular JavaScript and CSS files
      * ✅ TODO 50/51: Added duplicate-handling.css
+     * ✅ ISSUE 60: Added progress-bar.css module
      */
     public function enqueue_scripts($hook) {
         if ($hook !== 'media_page_page-images-manager') {
@@ -60,6 +62,10 @@ class Page_Images_Manager {
         // ============================================
         
         wp_enqueue_style('pim-toast-css', PIM_PLUGIN_URL . 'assets/css/modules/toast-notifications.css', array(), filemtime(PIM_PLUGIN_DIR . 'assets/css/modules/toast-notifications.css'));
+    
+        // ✅ ISSUE 60: NEW - Progress bar styles module
+        wp_enqueue_style('pim-progress-bar-css', PIM_PLUGIN_URL . 'assets/css/modules/progress-bar.css', array('pim-toast-css'), filemtime(PIM_PLUGIN_DIR . 'assets/css/modules/progress-bar.css'));
+
         wp_enqueue_style('pim-collapsible-css', PIM_PLUGIN_URL . 'assets/css/modules/collapsible-sections.css', array(), filemtime(PIM_PLUGIN_DIR . 'assets/css/modules/collapsible-sections.css'));
         wp_enqueue_style('pim-grid-css', PIM_PLUGIN_URL . 'assets/css/modules/image-grid.css', array(), filemtime(PIM_PLUGIN_DIR . 'assets/css/modules/image-grid.css'));
         wp_enqueue_style('pim-selectors-css', PIM_PLUGIN_URL . 'assets/css/modules/size-selectors.css', array(), filemtime(PIM_PLUGIN_DIR . 'assets/css/modules/size-selectors.css'));
@@ -85,15 +91,26 @@ class Page_Images_Manager {
         
         wp_add_inline_style('pim-locked-css', $inline_css);
         
-        // Main admin CSS (depends on all modules)
-        wp_enqueue_style('pim-admin-css', PIM_PLUGIN_URL . 'assets/css/admin.css', array('pim-toast-css', 'pim-collapsible-css', 'pim-grid-css', 'pim-selectors-css', 'pim-buttons-css', 'pim-locked-css', 'pim-debug-log-viewer-css', 'pim-duplicate-handling-css'), filemtime(PIM_PLUGIN_DIR . 'assets/css/admin.css'));
-        
+        // Main admin CSS (depends on all modules including progress-bar)
+        wp_enqueue_style('pim-admin-css', PIM_PLUGIN_URL . 'assets/css/admin.css', array(
+            'pim-toast-css', 
+            'pim-progress-bar-css',  // ✅ ISSUE 60: NEW dependency
+            'pim-collapsible-css', 
+            'pim-grid-css', 
+            'pim-selectors-css', 
+            'pim-buttons-css', 
+            'pim-locked-css', 
+            'pim-debug-log-viewer-css', 
+            'pim-duplicate-handling-css'
+        ), filemtime(PIM_PLUGIN_DIR . 'assets/css/admin.css'));
+
         // ============================================
         // ENQUEUE JAVASCRIPT MODULES (no changes)
         // ============================================
         
         wp_enqueue_script('pim-core', PIM_PLUGIN_URL . 'assets/js/modules/core.js', array('jquery'), filemtime(PIM_PLUGIN_DIR . 'assets/js/modules/core.js'), true);
         wp_enqueue_script('pim-toast', PIM_PLUGIN_URL . 'assets/js/modules/toast-notifications.js', array(), filemtime(PIM_PLUGIN_DIR . 'assets/js/modules/toast-notifications.js'), true);
+        wp_enqueue_script('pim-dialog-helpers', PIM_PLUGIN_URL . 'assets/js/modules/dialog-helpers.js', array('jquery', 'pim-core', 'pim-toast'), filemtime(PIM_PLUGIN_DIR . 'assets/js/modules/dialog-helpers.js'), true);
         wp_enqueue_script('pim-page-selector', PIM_PLUGIN_URL . 'assets/js/modules/page-selector.js', array('jquery', 'pim-core', 'pim-toast'), filemtime(PIM_PLUGIN_DIR . 'assets/js/modules/page-selector.js'), true);
         wp_enqueue_script('pim-collapsible', PIM_PLUGIN_URL . 'assets/js/modules/collapsible-sections.js', array('jquery', 'pim-core'), filemtime(PIM_PLUGIN_DIR . 'assets/js/modules/collapsible-sections.js'), true);
         wp_enqueue_script('pim-thumbnail-gen', PIM_PLUGIN_URL . 'assets/js/modules/thumbnail-generation.js', array('jquery', 'pim-core'), filemtime(PIM_PLUGIN_DIR . 'assets/js/modules/thumbnail-generation.js'), true);

@@ -1,0 +1,204 @@
+/**
+ * Progress Bar Styles - Modular System
+ * Enable styles via string parameter in JavaScript
+ * 
+ * Usage:
+ *   PIM_Toast.progress('Scanning...', 0);                    // Base only
+ *   PIM_Toast.progress('Scanning...', 0, 'gradient');        // With gradient
+ *   PIM_Toast.progress('Scanning...', 0, 'gradient+sparkle+hourglass'); // Multiple styles
+ * 
+ * Available styles:
+ *   - gradient: Animated gradient effect
+ *   - sparkle: Moving light effect
+ *   - percent: Show percentage in progress bar
+ *   - hourglass: Animated hourglass emoji
+ *   - wave: Wave animation (for indeterminate progress)
+ *   - pulse: Pulse effect near 100%
+ *   - color: Change colors based on progress percentage
+ */
+
+/* ============================================ /
+/ BASE STYLES (always active) /
+/ ============================================ */
+
+.pim-toast-progress-bar {
+    height: 8px;  /* ✅ FIXED: Was 4px, now 8px to match border-radius */
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 0 0 8px 8px;
+    overflow: visible;
+    margin-top: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);  /* ✅ Added subtle shadow */
+    position: relative;  /* ✅ For absolute positioned children */
+}
+.pim-toast-progress-fill {
+    height: 100%;  /* ✅ Now = 8px (matches parent) */
+    background: linear-gradient(90deg, #4CAF50, #81C784);
+    transition: width 0.3s ease;
+    position: relative;  /* ✅ For pseudo-elements */
+}
+/* ============================================ /
+/ VARIANT: Animated Gradient /
+/ Usage: 'gradient' /
+/ ============================================ */
+.pim-progress-style-gradient .pim-toast-progress-fill {
+    background: linear-gradient(90deg, 
+        #4CAF50, 
+        #66BB6A, 
+        #81C784,
+        #66BB6A,
+        #4CAF50
+    );
+    background-size: 200% 100%;
+    animation: pim-gradient-shift 2s ease-in-out infinite;
+}
+
+@keyframes pim-gradient-shift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+/* ============================================ /
+/ VARIANT: Sparkle Effect /
+/ Usage: 'sparkle' /
+/ ============================================ */
+.pim-progress-style-sparkle .pim-toast-progress-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 30px;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6));
+    animation: pim-sparkle 1.5s ease-in-out infinite;
+    pointer-events: none;
+}
+@keyframes pim-sparkle {
+    0%, 100% {
+        transform: translateX(0);
+        opacity: 0;
+    }
+    50% {
+        transform: translateX(-100px);
+        opacity: 1;
+    }
+}
+/* ============================================ /
+/ VARIANT: Percent in Bar /
+/ Usage: 'percent' /
+/ ============================================ */
+.pim-progress-style-percent .pim-toast-progress-fill::before {
+    content: attr(data-percent) '%';
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 10px;
+    font-weight: 700;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    pointer-events: none;
+}
+/* ============================================ /
+/ VARIANT: Hourglass Animation /
+/ Usage: 'hourglass' /
+/ ============================================ */
+.pim-progress-style-hourglass .pim-toast-icon {
+    animation: pim-hourglass-spin 2s ease-in-out infinite;
+    display: inline-block;
+}
+@keyframes pim-hourglass-spin {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(180deg); }
+}
+/* ============================================ /
+/ VARIANT: Wave Animation (indeterminate) /
+/ Usage: 'wave' /
+/ ============================================ */
+.pim-progress-style-wave .pim-toast-progress-fill.indeterminate {
+    background: repeating-linear-gradient(
+        45deg,
+        #4CAF50,
+        #4CAF50 10px,
+        #66BB6A 10px,
+        #66BB6A 20px
+    );
+    background-size: 40px 100%;
+    animation: pim-wave 1s linear infinite;
+}
+@keyframes pim-wave {
+    0% { background-position: 0 0; }
+    100% { background-position: 40px 0; }
+}
+/* ============================================ /
+/ VARIANT: Pulse Effect (near 100%) /
+/ Usage: 'pulse' /
+/ ============================================ */
+.pim-progress-style-pulse .pim-toast-progress-fill[data-percent-range="90-100"] {
+    animation: pim-pulse-green 0.8s ease-in-out infinite;
+}
+@keyframes pim-pulse-green {
+    0%, 100% {
+        opacity: 1;
+        box-shadow: inset 0 0 0 rgba(76, 175, 80, 0);
+    }
+    50% {
+        opacity: 0.9;
+        box-shadow: inset 0 0 8px rgba(76, 175, 80, 0.8);
+    }
+}
+/* ============================================ /
+/ VARIANT: Color Change by Progress /
+/ Usage: 'color' /
+/ ============================================ */
+/* Progress bar colors */
+.pim-progress-style-color .pim-toast-progress-fill[data-percent-range="0-30"] {
+    background: linear-gradient(90deg, #ff9800, #ffb74d);
+}
+.pim-progress-style-color .pim-toast-progress-fill[data-percent-range="30-70"] {
+    background: linear-gradient(90deg, #2196F3, #64B5F6);
+}
+.pim-progress-style-color .pim-toast-progress-fill[data-percent-range="70-100"] {
+    background: linear-gradient(90deg, #4CAF50, #81C784);
+}
+/* ============================================ */
+/* VARIANT: Toast Background by Progress */
+/* ============================================ */
+/* Toast background colors */
+.pim-progress-style-color[data-percent-range="0-30"] {
+    background: linear-gradient(to right, #fff3cd 0%, #ffffff 100%);
+    border-left-color: #ff9800;
+}
+.pim-progress-style-color[data-percent-range="30-70"] {
+    background: linear-gradient(to right, #e7f3ff 0%, #ffffff 100%);
+    border-left-color: #2196F3;
+}
+.pim-progress-style-color[data-percent-range="70-100"] {
+    background: linear-gradient(to right, #d4edda 0%, #ffffff 100%);
+    border-left-color: #4CAF50;
+}
+
+/* ============================================ */
+/* VARIANT A: Large Percent Next to Progress Bar */
+/* ============================================ */
+.pim-toast-progress-percent {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    font-weight: 700;
+    color: #666;
+    pointer-events: none;
+}
+
+/* ============================================ /
+/ RESPONSIVE /
+/ ============================================ */
+@media (max-width: 600px) {
+        .pim-toast-progress-bar {
+        height: 6px;  /* Slightly smaller on mobile */
+    }
+.pim-progress-style-percent .pim-toast-progress-fill::before {
+        font-size: 9px;
+        right: 5px;
+    }
+}

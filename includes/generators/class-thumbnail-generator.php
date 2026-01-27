@@ -49,13 +49,48 @@ class PIM_Thumbnail_Generator {
 
         PIM_Debug_Logger::success('Main file validated');
 
-        // Get locked sizes
+        // ✅ NEW: Get ALL sizes from _pim_page_usage (cross-page protection)
+        $page_usage = get_post_meta($image_id, '_pim_page_usage', true);
+        $protected_sizes = array();
+        
+        if (is_array($page_usage) && !empty($page_usage)) {
+            PIM_Debug_Logger::log('Found _pim_page_usage data', array(
+                'pages_count' => count($page_usage)
+            ));
+            
+            // Extract all unique sizes from ALL pages
+            foreach ($page_usage as $pid => $uses) {
+                foreach ($uses as $use) {
+                    if (isset($use['size_name'])) {
+                        $protected_sizes[] = $use['size_name'];
+                    }
+                }
+            }
+            
+            $protected_sizes = array_unique($protected_sizes);
+            
+            PIM_Debug_Logger::log('Protected sizes (from all pages)', array(
+                'count' => count($protected_sizes),
+                'sizes' => $protected_sizes
+            ));
+        } else {
+            PIM_Debug_Logger::warning('No _pim_page_usage found - no cross-page protection!');
+        }
+
+        // ✅ LEGACY: Also get locked sizes (backwards compatibility)
         $locked_sizes = $this->lock_manager->get_all_locked_sizes($image_id);
-        PIM_Debug_Logger::log('Locked sizes (protected)', $locked_sizes);
+        PIM_Debug_Logger::log('Locked sizes (legacy system)', $locked_sizes);
+
+        // ✅ UNION: protected + locked
+        $all_protected = array_unique(array_merge($protected_sizes, $locked_sizes));
+        PIM_Debug_Logger::log('Final protected sizes (union)', array(
+            'count' => count($all_protected),
+            'sizes' => $all_protected
+        ));
 
         // Delete unlocked thumbnails
         PIM_Debug_Logger::log('Deleting unlocked thumbnails...');
-        $this->file_manager->delete_unlocked_thumbnails($image_id, $file, $locked_sizes);
+        $this->file_manager->delete_unlocked_thumbnails($image_id, $file, $all_protected);
 
         require_once(ABSPATH . 'wp-admin/includes/image.php');
 
@@ -79,18 +114,16 @@ class PIM_Thumbnail_Generator {
             $metadata = array('sizes' => array());
         }
 
-        // Extract unique sizes
+        // ✅ Extract unique sizes from source_mappings (user selection)
         $sizes_to_generate = array_unique(array_values($source_mappings));
         $sizes_to_generate = array_filter($sizes_to_generate, function($size) {
             return $size !== 'non-standard';
         });
 
-        // Add locked sizes
-        if (!empty($locked_sizes)) {
-            $sizes_to_generate = array_unique(array_merge($sizes_to_generate, $locked_sizes));
-        }
+        // ✅ UNION: user selection + protected sizes
+        $sizes_to_generate = array_unique(array_merge($sizes_to_generate, $all_protected));
 
-        PIM_Debug_Logger::log('Final sizes to generate', array(
+        PIM_Debug_Logger::log('Final sizes to generate (UNION)', array(
             'count' => count($sizes_to_generate),
             'sizes' => array_values($sizes_to_generate)
         ));

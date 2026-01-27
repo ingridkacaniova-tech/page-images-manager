@@ -2,9 +2,8 @@
 /**
  * Admin Page Template
  * 
- * FIXES:
- * ✅ ISSUE 22: DEBUG checkbox defaultne VYPNUTÝ
- * ✅ TODO 26: Checkbox presunutý do prvého riadku (text → checkbox)
+ * ✅ ORIGINAL structure preserved
+ * ✅ ONLY ADDITION: Scan controls at the top
  */
 
 if (!defined('ABSPATH')) {
@@ -14,15 +13,48 @@ if (!defined('ABSPATH')) {
 
 <div class="wrap">
     <h1><?php echo esc_html__('🖼️ Page Images Manager', 'page-images-manager'); ?></h1>
+    
+    <!-- ✅ NEW: Scan All Pages Section -->
+    <div class="pim-section">
+        <h2><?php _e('🔄 Scan All Pages', 'page-images-manager'); ?></h2>
+        <p class="description">
+            <?php _e('Collect image usage data from all pages to enable cross-page protection. Run this before using the plugin.', 'page-images-manager'); ?>
+        </p>
+        
+        <!-- ✅ Buttons in one row -->
+        <div class="pim-scan-buttons">
+            <button id="collect-images-btn" class="button button-primary">
+                🔄 Collect Images from All Pages & Save to Database
+            </button>
+            <button id="show-scan-info-btn" class="button button-secondary">
+                📊 Show Last Scan Info  
+            </button>
+            <button id="save-list-to-file-btn" class="button button-secondary">
+                💾 Save the List to File
+            </button>
+        </div>
+        
+        <!-- ✅ NEW: Scan info always visible (updated by JS) -->
+        <div id="scan-info-display" class="pim-scan-info-panel">
+            <span><strong>Last scan:</strong> <span id="scan-timestamp">Never</span></span>
+            <span class="pim-scan-separator">|</span>
+            <span><strong>Duration:</strong> <span id="scan-duration">—</span></span>
+            <span class="pim-scan-separator">|</span>
+            <span><strong>Scanned:</strong> <span id="scan-stats">—</span></span>
+        </div>
+    </div>
+        
+    <!-- ✅ ORIGINAL: Description text -->
     <p><?php echo esc_html__('Select a page to manage thumbnails for all images used on that page.', 'page-images-manager'); ?></p>
 
+    <!-- ✅ ORIGINAL: pim-container wrapper -->
     <div class="pim-container">
         
-        <!-- Step 1: Page Selection -->
+        <!-- ✅ ORIGINAL: Step 1 section -->
         <div class="pim-section">
             <h2><?php echo esc_html__('Step 1: Select Page', 'page-images-manager'); ?></h2>
             
-            <!-- ✅ TODO 26: Checkbox na konci riadku, text → checkbox -->
+            <!-- ✅ ORIGINAL: Inline layout with checkbox at the end -->
             <div style="display: flex; align-items: center; gap: 15px;">
                 <select id="page-selector" class="pim-select">
                     <option value=""><?php echo esc_html__('-- Select a Page --', 'page-images-manager'); ?></option>
@@ -50,7 +82,7 @@ if (!defined('ABSPATH')) {
                 
                 <span id="load-status"></span>
                 
-                <!-- ✅ TODO 26: Debug Log checkbox na konci riadku -->
+                <!-- ✅ ORIGINAL: Debug Log checkbox INLINE na konci riadku -->
                 <label style="display: flex; align-items: center; gap: 8px; margin-left: auto; cursor: pointer; user-select: none; white-space: nowrap;">
                     <span style="font-weight: 500; font-size: 13px; color: #2271b1;">
                         📋 Show Debug Log View
@@ -60,7 +92,7 @@ if (!defined('ABSPATH')) {
             </div>
         </div>
 
-        <!-- Step 2: Image Management -->
+        <!-- ✅ ORIGINAL: Step 2 section -->
         <div class="pim-section" id="images-section" style="display: none;">
             <h2><?php echo esc_html__('Step 2: Select Thumbnails for Each Image', 'page-images-manager'); ?></h2>
             <p class="description">
@@ -74,20 +106,14 @@ if (!defined('ABSPATH')) {
 
     </div>
     
-    
-    <!-- ============================================ -->
-    <!-- DEBUG LOG VIEWER - LAZY LOADED -->
-    <!-- ✅ ISSUE 22: Default hidden (checkbox unchecked) -->
-    <!-- ============================================ -->
-    
-    <!-- Placeholder - obsah sa načíta cez AJAX -->
+    <!-- ✅ ORIGINAL: Debug log section -->
     <div id="pim-debug-log-section" style="margin-top: 40px; display: none;">
         <!-- Načíta sa dynamicky cez AJAX -->
     </div>
     
 </div>
 
-<!-- ✅ Hidden data pre AJAX endpoint -->
+<!-- ✅ ORIGINAL: Hidden data pre AJAX -->
 <script type="text/javascript">
     var pimDebugLogNonce = '<?php echo wp_create_nonce('pim_load_debug_log'); ?>';
 </script>

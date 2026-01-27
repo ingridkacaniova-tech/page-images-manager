@@ -338,7 +338,7 @@ class PIM_Size_Helper {
     /**
      * ✅ Match size by dimensions
      */
-    private function match_size_by_dimensions($width, $height) {
+    public function match_size_by_dimensions($width, $height) {
         $all_sizes = wp_get_registered_image_subsizes();
         
         foreach ($all_sizes as $size_name => $size_data) {

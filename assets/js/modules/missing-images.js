@@ -72,10 +72,7 @@ const PIM_MissingImages = (function($) {
         const $button = $(this);
         const imageUrl = $button.data('url');
         const pageId = PIM_Core.getCurrentPageId();
-        
-        console.log('🔨 Create button clicked');
-        console.log('URL:', imageUrl);
-        console.log('Page ID:', pageId);
+        const $row = $button.closest('div[style*="border"]'); // Get the row
         
         if (!imageUrl) {
             PIM_Toast.error('Missing image URL');
@@ -97,11 +94,56 @@ const PIM_MissingImages = (function($) {
                 page_id: pageId
             },
             function(data) {
-                console.log('Response:', data);
-                PIM_Toast.update(toastId, 'Attachment created! ID: ' + data.attachment_id, 'success');
+                console.log('✅ Attachment created:', data);
                 
-                // ✅ Full refresh needed here (new attachment created)
-                PIM_Core.refreshImages();
+                if (data.mode === 'empty_attachment') {
+                    // ✅ SCENARIO 1: Empty attachment created
+                    // Item should move to Missing Files section
+                    PIM_Toast.update(toastId, 'Empty attachment created! Item will appear in Missing Files.', 'success', 4000);
+                    
+                    // Remove from Missing in Database section
+                    $row.fadeOut(300, function() {
+                        $(this).remove();
+                        
+                        // Check if section is now empty
+                        const $section = $('#missing-db-content');
+                        if ($section.find('div[style*="border"]').length === 0) {
+                            $('#section-missing-db').fadeOut(300, function() {
+                                $(this).remove();
+                            });
+                        }
+                    });
+                    
+                    // ✅ NO FULL REFRESH! Item will appear in Missing Files on next manual "Load Images"
+                    // OR we can add it dynamically to Missing Files section (more complex)
+                    
+                } else if (data.mode === 'consolidated' || data.mode === 'new') {
+                    // ✅ SCENARIO 2A/2B: Real attachment created
+                    // Update ONLY this image row
+                    
+                    PIM_Toast.update(toastId, data.message || 'Attachment created!', 'success', 4000);
+                    
+                    // Update the row to show in Existing Images
+                    PIM_Core.updateSingleImageRow(data.attachment_id, function(success) {
+                        if (success) {
+                            console.log('✅ Row updated - now in Existing Images');
+                            
+                            // Remove from Missing in Database
+                            $row.fadeOut(300, function() {
+                                $(this).remove();
+                                
+                                // Check if section is empty
+                                const $section = $('#missing-db-content');
+                                if ($section.find('div[style*="border"]').length === 0) {
+                                    $('#section-missing-db').fadeOut(300);
+                                }
+                            });
+                        } else {
+                            console.error('❌ Row update failed');
+                            PIM_Toast.warning('Created but failed to update display. Refresh page to see changes.');
+                        }
+                    });
+                }
             },
             function(error) {
                 console.error('Create attachment error:', error);

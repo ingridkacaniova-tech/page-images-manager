@@ -8,6 +8,11 @@
  *   PIM_Toast.warning('No sizes selected');
  *   PIM_Toast.info('Processing...');
  *   PIM_Toast.loading('Uploading...', id);
+ *   
+ * ✅ ISSUE 60: Progress toasts
+ *   const id = PIM_Toast.progress('Scanning...', 0);
+ *   PIM_Toast.updateProgress(id, 'Scanning... 45/200', 22);
+ *   PIM_Toast.closeProgress(id);
  */
 
 const PIM_Toast = (function() {
@@ -37,12 +42,9 @@ const PIM_Toast = (function() {
     }
     
     function loading(message, id) {
-        return show(message, 'loading', 0, id); // 0 = no auto-dismiss
+        return show(message, 'loading', 0, id);
     }
     
-    /**
-     * Update existing toast (useful for loading → success transitions)
-     */
     function update(id, message, type = 'success', duration = 3000) {
         const toast = toasts[id];
         if (!toast) return;
@@ -51,33 +53,24 @@ const PIM_Toast = (function() {
         const $icon = $toast.querySelector('.pim-toast-icon');
         const $message = $toast.querySelector('.pim-toast-message');
         
-        // Update content
         $icon.textContent = getIcon(type);
         $message.textContent = message;
         
-        // Update styling
         $toast.className = `pim-toast pim-toast-${type} show`;
         
-        // Auto-dismiss if duration set
         if (duration > 0) {
             clearTimeout(toast.timeout);
             toast.timeout = setTimeout(() => dismiss(id), duration);
         }
     }
     
-    /**
-     * Manually dismiss a toast
-     */
     function dismiss(id) {
         const toast = toasts[id];
         if (!toast) return;
         
         const $toast = toast.element;
-        
-        // Fade out
         $toast.classList.remove('show');
         
-        // Remove from DOM after animation
         setTimeout(() => {
             if ($toast.parentNode) {
                 $toast.parentNode.removeChild($toast);
@@ -86,11 +79,116 @@ const PIM_Toast = (function() {
         }, 300);
     }
     
-    /**
-     * Clear all toasts
-     */
     function clearAll() {
         Object.keys(toasts).forEach(id => dismiss(id));
+    }
+    
+    // ============================================
+    // ✅ ISSUE 60: NEW - PROGRESS TOAST METHODS
+    // ============================================
+    
+    function progress(message, progressPercent = 0, styles = '', customId) {
+        const id = customId || `toast-${++toastCounter}`;
+        
+        // 🐛 DEBUG: Log what we received
+        console.log('🎯 PIM_Toast.progress() called with:');
+        console.log('  message:', message);
+        console.log('  progressPercent:', progressPercent);
+        console.log('  styles:', styles);
+        console.log('  customId:', customId);
+        
+        // ✅ Parse styles string into CSS classes
+        const styleClasses = parseProgressStyles(styles);
+        
+        // 🐛 DEBUG: Log parsed classes
+        console.log('  ➡️ Parsed styleClasses:', styleClasses);
+        
+        const $toast = createProgressToastElement(message, progressPercent, id, false, styleClasses);
+        
+        // 🐛 DEBUG: Log toast HTML
+        console.log('  ➡️ Toast HTML:', $toast.outerHTML);
+        
+        const $container = getContainer();
+        $container.appendChild($toast);
+        
+        setTimeout(() => $toast.classList.add('show'), 10);
+        
+        toasts[id] = {
+            element: $toast,
+            timeout: null
+        };
+        
+        return id;
+    }
+    
+    /**
+     * Create indeterminate progress toast (when percentage unknown)
+     */
+    function progressIndeterminate(message, styles = '', customId) {
+        const id = customId || `toast-${++toastCounter}`;
+        
+        const styleClasses = parseProgressStyles(styles);
+        
+        const $toast = createProgressToastElement(message, 0, id, true, styleClasses);
+        
+        const $container = getContainer();
+        $container.appendChild($toast);
+        
+        setTimeout(() => $toast.classList.add('show'), 10);
+        
+        toasts[id] = {
+            element: $toast,
+            timeout: null
+        };
+        
+        return id;
+    }
+    
+    /**
+     * Update progress percentage and message
+     */
+    function updateProgress(id, message, progressPercent) {
+        const toast = toasts[id];
+        if (!toast) return;
+        
+        const $toast = toast.element;
+        const $message = $toast.querySelector('.pim-toast-message');
+        const $progressFill = $toast.querySelector('.pim-toast-progress-fill');
+        const $percentText = $toast.querySelector('.pim-toast-progress-percent');  // ✅ NEW
+        
+        if ($message) {
+            $message.textContent = message;
+        }
+        
+        // ✅ NEW: Update percent text
+        if ($percentText) {
+            $percentText.textContent = Math.round(progressPercent) + '%';
+        }
+        
+        if ($progressFill) {
+            const clampedPercent = Math.min(100, Math.max(0, progressPercent));
+            $progressFill.style.width = clampedPercent + '%';
+            
+            // ✅ Update data attributes for style variants
+            $progressFill.setAttribute('data-percent', Math.round(clampedPercent));
+            
+            // ✅ Set percent range for color variant
+            let range = '0-30';
+            if (clampedPercent >= 30 && clampedPercent < 70) {
+                range = '30-70';
+            } else if (clampedPercent >= 70) {
+                range = '70-100';
+            }
+            $progressFill.setAttribute('data-percent-range', range);
+            $toast.setAttribute('data-percent-range', range);
+        }
+    }
+
+    /**
+     * Close progress toast
+     */
+    function closeProgress(id) {
+        dismiss(id);
     }
     
     // ============================================
@@ -100,28 +198,22 @@ const PIM_Toast = (function() {
     function show(message, type, duration, customId) {
         const id = customId || `toast-${++toastCounter}`;
         
-        // Create toast element
         const $toast = createToastElement(message, type, id);
         
-        // Get or create container
         const $container = getContainer();
         $container.appendChild($toast);
         
-        // Trigger slide-in animation
         setTimeout(() => $toast.classList.add('show'), 10);
         
-        // Store reference
         toasts[id] = {
             element: $toast,
             timeout: null
         };
         
-        // Auto-dismiss if duration is set
         if (duration > 0) {
             toasts[id].timeout = setTimeout(() => dismiss(id), duration);
         }
         
-        // Add click to dismiss
         $toast.addEventListener('click', () => dismiss(id));
         
         return id;
@@ -138,7 +230,6 @@ const PIM_Toast = (function() {
             <span class="pim-toast-close" title="Dismiss">×</span>
         `;
         
-        // Close button handler
         const $close = $toast.querySelector('.pim-toast-close');
         $close.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -148,6 +239,87 @@ const PIM_Toast = (function() {
         return $toast;
     }
     
+    /**
+     * ✅ Create progress toast element with style classes
+     */
+    function createProgressToastElement(message, progressPercent, id, isIndeterminate = false, styleClasses = '') {
+        // 🐛 DEBUG
+        console.log('🎨 createProgressToastElement() called with:');
+        console.log('  styleClasses:', styleClasses);
+        
+        const $toast = document.createElement('div');
+        $toast.className = `pim-toast pim-toast-progress ${styleClasses}`;
+        
+        // 🐛 DEBUG: Verify final className
+        console.log('  ➡️ Toast className:', $toast.className);
+        
+        $toast.setAttribute('data-toast-id', id);
+        
+        // ✅ Set initial percent range
+        let range = '0-30';
+        if (progressPercent >= 30 && progressPercent < 70) {
+            range = '30-70';
+        } else if (progressPercent >= 70) {
+            range = '70-100';
+        }
+        $toast.setAttribute('data-percent-range', range);
+        
+        const progressClass = isIndeterminate ? 'pim-toast-progress-fill indeterminate' : 'pim-toast-progress-fill';
+        
+        $toast.innerHTML = `
+            <div class="pim-toast-content">
+                <span class="pim-toast-icon">⏳</span>
+                <span class="pim-toast-message">${escapeHtml(message)}</span>
+            </div>
+            <div class="pim-toast-progress-bar">
+                <div class="${progressClass}" 
+                    style="width: ${progressPercent}%" 
+                    data-percent="${Math.round(progressPercent)}"
+                    data-percent-range="${range}"></div>
+                <span class="pim-toast-progress-percent">${Math.round(progressPercent)}%</span>
+            </div>
+        `;
+        
+        return $toast;
+    }
+    
+    /**
+     * ✅ Parse style string into CSS classes
+     * Example: "gradient+sparkle+hourglass" → "pim-progress-style-gradient pim-progress-style-sparkle pim-progress-style-hourglass"
+     */
+    function parseProgressStyles(styles) {
+        // 🐛 DEBUG
+        console.log('🔧 parseProgressStyles() called with:', styles);
+        
+        if (!styles) {
+            console.log('  ❌ Styles empty, returning empty string');
+            return '';
+        }
+        
+        const styleMap = {
+            'gradient': 'pim-progress-style-gradient',
+            'sparkle': 'pim-progress-style-sparkle',
+            'wave': 'pim-progress-style-wave',
+            'percent': 'pim-progress-style-percent',
+            'hourglass': 'pim-progress-style-hourglass',
+            'pulse': 'pim-progress-style-pulse',
+            'color': 'pim-progress-style-color'
+        };
+        
+        const result = styles.split('+')
+            .map(style => {
+                const trimmed = style.trim().toLowerCase();
+                const mapped = styleMap[trimmed];
+                console.log(`    "${trimmed}" ➡️ "${mapped || 'NOT FOUND'}"`);
+                return mapped;
+            })
+            .filter(Boolean)
+            .join(' ');
+        
+        console.log('  ➡️ Final result:', result);
+        return result;
+    }
+
     function getContainer() {
         let $container = document.getElementById('pim-toast-container');
         
@@ -189,10 +361,13 @@ const PIM_Toast = (function() {
         loading,
         update,
         dismiss,
-        clearAll
+        clearAll,
+        progress,
+        updateProgress,
+        closeProgress,
+        progressIndeterminate
     };
     
 })();
 
-// Make globally available
 window.PIM_Toast = PIM_Toast;

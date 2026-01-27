@@ -70,6 +70,7 @@ class PIM_Ajax_Handler_Images {
         wp_send_json_success(array(
             'html' => $html,
             'count' => $data['count'],
+            'image_details' => $data['image_details'], // ← PRIDAJ TENTO RIADOK!
             'debug_data' => array(
                 'valid_images' => $data['valid_images'],
                 'missing_files' => $data['missing_files'],
@@ -118,9 +119,34 @@ class PIM_Ajax_Handler_Images {
         }
 
         $file_path = get_attached_file($image_id);
+        
+        // ✅ Check if it's an empty attachment (file missing)
+        $is_file_missing = get_post_meta($image_id, '_pim_file_missing', true);
+        
         if (!$file_path || !file_exists($file_path)) {
-            error_log("❌ Image file not found on disk");
-            wp_send_json_error('Image file not found');
+            if ($is_file_missing) {
+                // ✅ This is EXPECTED for empty attachments
+                // Render as Missing File row instead
+                error_log("⚠️ Empty attachment - rendering as Missing File");
+                
+                // Use Missing File renderer
+                $custom_sizes = $size_helper->get_custom_sizes();
+                $image_sources = array($image_id => array('unknown'));
+                
+                ob_start();
+                $this->renderer->render_missing_file_row($image_id, $custom_sizes, $image_sources);
+                $html = ob_get_clean();
+                
+                wp_send_json_success(array(
+                    'html' => $html,
+                    'image_id' => $image_id,
+                    'section' => 'missing-files' // ✅ Tell frontend which section!
+                ));
+            } else {
+                // ✅ This is UNEXPECTED - real error
+                error_log("❌ Image file not found on disk");
+                wp_send_json_error('Image file not found');
+            }
         }
 
         error_log("✅ Image exists in DB and on disk");

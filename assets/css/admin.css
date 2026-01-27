@@ -98,3 +98,255 @@
     margin-top: 10px;
     font-weight: bold;
 }
+
+/* ============================================ */
+/* LOAD ALL IMAGES FOR ALL PAGES - MODERN LAYOUT */
+/* ============================================ */
+
+.pim-controls-flex {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    margin-bottom: 20px;
+}
+
+.pim-button-column {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 220px;
+}
+
+.pim-button-column .button {
+    width: 100%;
+    text-align: left;
+    font-size: 13px;
+    padding: 8px 12px;
+    height: auto;
+    min-height: 36px;
+}
+
+.pim-scan-info-column {
+    flex: 1;
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+}
+
+#scan-info-display div {
+    margin-bottom: 4px;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+#scan-info-display strong {
+    color: #23282d;
+    min-width: 80px;
+    display: inline-block;
+    font-weight: 600;
+}
+
+#scan-info-display span {
+    color: #555;
+}
+
+/* ✅ Highlight recent scan */
+#scan-info-display.recent {
+    background: #e8f5e9;
+    border-color: #4caf50;
+}
+
+/* ============================================ */
+/* RESPONSIVE BREAKPOINTS */
+/* ============================================ */
+
+@media (max-width: 1399px) {
+    .pim-controls-flex {
+        gap: 15px;
+    }
+    
+    .pim-button-column {
+        min-width: 200px;
+    }
+    
+    .pim-scan-info-column {
+        padding: 12px;
+    }
+    
+    #scan-info-display div {
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 768px) {
+    .pim-controls-flex {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .pim-button-column {
+        width: 100%;
+        min-width: auto;
+    }
+    
+    .pim-scan-info-column {
+        width: 100%;
+        border-left: none;
+        border-top: 2px solid #ddd;
+        padding-top: 15px;
+    }
+}
+
+/* ============================================ */
+/* ✅ SECTION SPACING - All sections same margin */
+/* ============================================ */
+
+/* Base container padding/margin */
+.pim-section {
+    background: white;
+    padding: 20px;               /* ✅ Same padding all sides */
+    margin: 20px 0;              /* ✅ Same vertical margin for ALL sections */
+    border: 1px solid #ccd0d4;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+}
+
+/* ✅ First section - no top margin */
+.pim-section:first-of-type {
+    margin-top: 0;
+}
+
+/* Page selector container */
+.pim-page-selection {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}   
+
+.pim-section h2 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 18px;
+}
+
+.pim-section p.description {
+    margin-bottom: 15px;
+    color: #666;
+    font-size: 13px;
+}
+
+.pim-section .button {
+    margin-right: 10px;
+    margin-bottom: 8px;
+}
+
+#scan-info-display {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+#scan-info-display p {
+    margin: 5px 0;
+    font-size: 13px;
+}
+
+#scan-info-display strong {
+    display: inline-block;
+    min-width: 100px;
+    color: #666;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .pim-section {
+        padding: 15px;
+    }
+    
+    .pim-section h2 {
+        font-size: 16px;
+    }
+    
+    .pim-section .button {
+        display: block;
+        width: 100%;
+        margin-right: 0;
+    }
+}
+
+/* ============================================ */
+/* ✅ SCAN INFO PANEL - Single line layout */
+/* ============================================ */
+
+.pim-scan-info-panel {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-top: 15px;
+    padding: 12px 15px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    font-size: 13px;
+}
+
+.pim-scan-info-panel span {
+    white-space: nowrap;
+}
+
+.pim-scan-info-panel strong {
+    color: #23282d;
+    font-weight: 600;
+}
+
+.pim-scan-separator {
+    color: #ddd;
+    font-size: 16px;
+}
+
+/* ✅ Highlight recent scan */
+.pim-scan-info-panel.recent {
+    background: #e8f5e9;
+    border-color: #4caf50;
+}
+
+/* ============================================ */
+/* ✅ SCAN BUTTONS - Inline with wrap */
+/* ============================================ */
+
+.pim-scan-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.pim-scan-buttons .button {
+    flex: 0 1 auto;
+}
+
+/* ============================================ */
+/* ✅ RESPONSIVE - Stack on mobile */
+/* ============================================ */
+
+@media (max-width: 768px) {
+    .pim-scan-info-panel {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .pim-scan-separator {
+        display: none;
+    }
+    
+    .pim-scan-buttons {
+        flex-direction: column;
+    }
+    
+    .pim-scan-buttons .button {
+        width: 100%;
+    }
+}

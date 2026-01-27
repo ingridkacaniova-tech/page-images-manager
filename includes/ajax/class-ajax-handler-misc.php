@@ -38,6 +38,12 @@ class PIM_Ajax_Handler_Misc {
 
         add_action('wp_ajax_delete_missing_item', array($this, 'delete_missing_item'));
         add_action('wp_ajax_delete_orphan_file', array($this, 'delete_orphan_file'));
+
+        // ✅ NEW: Scan all pages functionality
+        add_action('wp_ajax_get_total_pages', array($this, 'get_total_pages'));
+        add_action('wp_ajax_scan_pages_batch', array($this, 'scan_pages_batch'));
+        add_action('wp_ajax_export_image_list', array($this, 'export_image_list'));
+        add_action('wp_ajax_get_latest_scan', array($this, 'get_latest_scan'));
     }
 
     /**
@@ -1288,5 +1294,245 @@ class PIM_Ajax_Handler_Misc {
         ));
         
         return $deleted_count;
+    }
+
+    /**
+     * ✅ NEW: Get total pages count
+     */
+    public function get_total_pages() {
+        check_ajax_referer('page_images_manager', 'nonce');
+        
+        $pages = get_pages(array('number' => 9999));
+        
+        wp_send_json_success(array(
+            'total' => count($pages)
+        ));
+    }
+
+    /**
+     * ✅ Scan all pages and save to _pim_page_usage (FLAT STRUCTURE)
+     */
+    public function scan_pages_batch() {
+        PIM_Debug_Logger::log_session_start('scan_pages_batch');
+        
+        error_log("\n🔄🔄🔄 === SCAN PAGES BATCH START === 🔄🔄🔄");
+        
+        check_ajax_referer('page_images_manager', 'nonce');
+        
+        $start_time = microtime(true);
+        
+        // 1. Get all published pages
+        $pages = get_posts([
+            'post_type' => 'page',
+            'post_status' => 'publish',
+            'posts_per_page' => -1,
+            'orderby' => 'ID',
+            'order' => 'ASC'
+        ]);
+        
+        error_log("📊 Found " . count($pages) . " published pages to scan");
+        
+        $total_images_processed = 0;
+        $total_uses_found = 0;
+        
+        // 2. Scan each page
+        foreach ($pages as $page) {
+            error_log("\n📄 === Scanning Page: {$page->post_title} (ID: {$page->ID}) ===");
+            
+            $extractor = new PIM_Image_Extractor();
+            $data = $extractor->extract_all_images($page->ID);
+            
+            if (!isset($data['image_details']) || empty($data['image_details'])) {
+                error_log("  ℹ️ No image_details found on this page");
+                continue;
+            }
+            
+            error_log("  📊 Found " . count($data['image_details']) . " images on this page");
+            
+            // 3. Process each image
+            foreach ($data['image_details'] as $image_id => $uses) {
+                error_log("\n  📷 Processing Image #{$image_id}");
+                error_log("    Uses on this page: " . count($uses));
+                
+                // 4. Get existing _pim_page_usage for this image
+                $existing_usage = get_post_meta($image_id, '_pim_page_usage', true);
+                if (!is_array($existing_usage)) {
+                    $existing_usage = array();
+                    error_log("    ℹ️ No existing _pim_page_usage, creating new");
+                } else {
+                    error_log("    ℹ️ Found existing _pim_page_usage with " . count($existing_usage) . " pages");
+                }
+                
+                // 5. Build page usage data for THIS page (FLAT ARRAY)
+                $page_usage = array();
+                
+                foreach ($uses as $use) {
+                    $size_name = $use['size_name'];
+                    $source = $use['source'];
+                    $elementor_id = $use['elementor_id'];
+                    $file_url = $use['file_url'];
+                    
+                    error_log("      📊 Use: size={$size_name}, source={$source}, elementor={$elementor_id}");
+                    
+                    // ✅ FLAT STRUCTURE - just append to array
+                    $page_usage[] = array(
+                        'size_name' => $size_name,
+                        'elementor_id' => $elementor_id,
+                        'source' => $source,
+                        'file_url' => $file_url
+                    );
+                    
+                    $total_uses_found++;
+                }
+                
+                // 6. Update/add this page's usage
+                $existing_usage[$page->ID] = $page_usage;
+                
+                error_log("    📝 Page usage for page #{$page->ID}: " . count($page_usage) . " uses");
+                
+                // 7. Save back to postmeta
+                update_post_meta($image_id, '_pim_page_usage', $existing_usage);
+                
+                error_log("    ✅ Saved _pim_page_usage for image #{$image_id}");
+                error_log("       Total pages using this image: " . count($existing_usage));
+                
+                $total_images_processed++;
+            }
+        }
+        
+        $duration = round((microtime(true) - $start_time), 2);
+        
+        error_log("\n📊 === SCAN SUMMARY ===");
+        error_log("  Pages scanned: " . count($pages));
+        error_log("  Images processed: {$total_images_processed}");
+        error_log("  Total uses found: {$total_uses_found}");
+        error_log("  Duration: {$duration} seconds");
+        
+        // 8. Save scan info to wp_options
+        update_option('pim_last_scan', array(
+            'timestamp' => current_time('mysql'),
+            'duration' => $duration,
+            'total_pages' => count($pages),
+            'total_images' => $total_images_processed,
+            'total_uses' => $total_uses_found,
+            'user' => wp_get_current_user()->display_name
+        ));
+        
+        error_log("✅ Saved scan info to wp_options");
+        error_log("🔄🔄🔄 === SCAN PAGES BATCH END === 🔄🔄🔄\n");
+        
+        wp_send_json_success(array(
+            'message' => sprintf(
+                "Scanned %d pages, processed %d images (%d uses)",
+                count($pages),
+                $total_images_processed,
+                $total_uses_found
+            ),
+            'duration' => $duration,
+            'total_pages' => count($pages),
+            'total_images' => $total_images_processed,
+            'total_uses' => $total_uses_found
+        ));
+    }
+
+
+    /**
+     * ✅ NEW: Export image list to CSV
+     */
+    public function export_image_list() {
+        check_ajax_referer('page_images_manager', 'nonce');
+        
+        global $wpdb;
+        
+        $results = $wpdb->get_results("
+            SELECT post_id, meta_value 
+            FROM {$wpdb->postmeta} 
+            WHERE meta_key = '_pim_page_usage'
+        ");
+        
+        $csv_data = array();
+        $csv_data[] = array('Image ID', 'Filename', 'Page ID', 'Page Title', 'Size', 'Source', 'Elementor ID', 'File URL');
+        
+        foreach ($results as $row) {
+            $image_id = $row->post_id;
+            $page_usage = maybe_unserialize($row->meta_value);
+            $filename = basename(get_attached_file($image_id));
+            
+            foreach ($page_usage as $page_id => $sizes) {
+                $page = get_post($page_id);
+                $page_title = $page ? $page->post_title : 'Unknown';
+                
+                foreach ($sizes as $size_name => $data) {
+                    $csv_data[] = array(
+                        $image_id,
+                        $filename,
+                        $page_id,
+                        $page_title,
+                        $size_name,
+                        $data['source'] ?? 'unknown',
+                        $data['elementor_id'] ?? 'unknown',
+                        $data['file_url'] ?? ''
+                    );
+                }
+            }
+        }
+        
+        // Generate CSV
+        $filename = 'pim-image-usage-' . date('Y-m-d-His') . '.csv';
+        $upload_dir = wp_upload_dir();
+        $filepath = $upload_dir['basedir'] . '/' . $filename;
+        
+        $fp = fopen($filepath, 'w');
+        foreach ($csv_data as $row) {
+            fputcsv($fp, $row);
+        }
+        fclose($fp);
+        
+        wp_send_json_success(array(
+            'download_url' => $upload_dir['baseurl'] . '/' . $filename,
+            'filename' => $filename,
+            'total_rows' => count($csv_data) - 1
+        ));
+    }
+
+    /**
+     * ✅ Helper: Detect size from source name
+     */
+    private function detect_size_from_source($source) {
+        $size_map = array(
+            'hero' => 'hero',
+            'background' => 'hero',
+            'carousel' => 'carousel-photo',
+            'gallery' => 'carousel-photo',
+            'image' => 'standard-page-photo',
+            'avatar' => 'thumbnail',
+            'logo' => 'thumbnail'
+        );
+        
+        return $size_map[$source] ?? 'full';
+    }
+
+    public function get_latest_scan() {
+        check_ajax_referer('page_images_manager', 'nonce');
+        
+        $cache = get_option('pim_last_scan', []);
+        wp_send_json_success($cache);
+    }
+
+    /**
+     * ✅ Extract all unique size names from _pim_page_usage
+     */
+    private function extract_all_sizes_from_usage($page_usage) {
+        $all_sizes = array();
+        
+        foreach ($page_usage as $page_id => $uses) {
+            foreach ($uses as $use) {
+                if (isset($use['size_name'])) {
+                    $all_sizes[] = $use['size_name'];
+                }
+            }
+        }
+        
+        return array_unique($all_sizes);
     }
 }

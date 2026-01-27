@@ -1,6 +1,9 @@
 /**
  * Toast Notifications Module
  * Lightweight toast system for non-blocking notifications
+ * 
+ * ✅ ISSUE 60: Base progress styles moved to progress-bar.css
+ * This file contains only core toast styles
  */
 
 /* ============================================ */
@@ -127,6 +130,24 @@
 .pim-toast-close:hover {
     opacity: 1;
     color: #1d2327;
+}
+
+/* ============================================ */
+/* ✅ ISSUE 60: PROGRESS TOAST STYLES */
+/* ============================================ */
+
+/* Progress toast - no bottom padding (progress bar is at bottom) */
+.pim-toast-progress {
+    padding: 16px 20px 12px 20px !important; /* ✅ Override base padding */
+    flex-direction: column; /* ✅ Stack content + progress bar vertically */
+    align-items: stretch; /* ✅ Progress bar spans full width */
+}
+
+/* Content wrapper (icon + message) */
+.pim-toast-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
 /* ============================================ */
