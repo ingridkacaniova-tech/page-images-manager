@@ -90,26 +90,7 @@ class PIM_Image_Extractor {
                 $image_sources[$id] = array('unknown');
             }
         }
-        
-        // Categorize images
-        $valid_images = array();
-        $missing_files = array();
-        
-        foreach ($image_ids as $id) {
-            $id = intval($id);
-            if ($id > 0) {
-                $post = get_post($id);
-                if ($post && $post->post_type === 'attachment') {
-                    $file_path = get_attached_file($id);
-                    if ($file_path && file_exists($file_path)) {
-                        $valid_images[] = $id;
-                    } else {
-                        $missing_files[] = $id;
-                    }
-                }
-            }
-        }
-        
+                
         // Process missing images
         $missing_image_ids = array();
         foreach ($missing_images as $missing) {
