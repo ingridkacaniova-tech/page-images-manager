@@ -60,6 +60,13 @@ class PIM_Ajax_Handler_Images {
         }
 
         $data = $this->extractor->extract_all_images($page_id);
+
+        if (isset($data['error'])) {
+            wp_send_json_error(array(
+                'message' => $data['message'],
+                'error_code' => $data['error']
+            ));
+        }
         
         if (is_wp_error($data)) {
             wp_send_json_error($data->get_error_message());

@@ -71,12 +71,28 @@ window.PIM_PageSelector = (function($) {
                             $('.pim-debug-only').show();
                         }
                     } else {
+                        // ✅ ZMENA: Handle error with dialog
                         status.html('<span style="color: red;">✗ Error: ' + response.data + '</span>');
                         
-                        if (typeof PIM_Toast !== 'undefined') {
-                            PIM_Toast.error('Error: ' + response.data);
+                        // Check if it's "no scan data" error
+                        if (response.data && response.data.error_code === 'no_scan_data') {
+                            if (typeof PIM_Dialog !== 'undefined') {
+                                PIM_Dialog.confirm({
+                                    title: '⚠️ Scan Required',
+                                    message: response.data.message || 'Please run "Collect Images from All Pages & Save" first.',
+                                    confirmText: 'OK',
+                                    onConfirm: function() {}
+                                });
+                            } else {
+                                alert('⚠️ ' + response.data.message);
+                            }
                         } else {
-                            alert('❌ Error: ' + response.data);
+                            // Other errors - show toast
+                            if (typeof PIM_Toast !== 'undefined') {
+                                PIM_Toast.error('Error: ' + (response.data.message || response.data));
+                            } else {
+                                alert('❌ Error: ' + response.data);
+                            }
                         }
                     }
                     button.prop('disabled', false).text('Load Images');

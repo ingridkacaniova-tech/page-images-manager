@@ -50,23 +50,36 @@ class PIM_Image_Extractor {
             error_log("✅ Loaded {$images_found_in_scan} images from saved scan");
             $debug_info['loaded_from_scan'] = true;
             $debug_info['scan_images_count'] = $images_found_in_scan;
-        } else {
-            // ⚠️ FALLBACK: No scan data available, run fresh extraction
-            error_log("⚠️ No saved scan data found, running fresh Elementor extraction");
-            $debug_info['loaded_from_scan'] = false;
-        
-            // Extract from content
-            $this->extract_from_content($page, $image_ids, $image_sources, $debug_info);
             
-            // Extract from Elementor
-            if (class_exists('\Elementor\Plugin')) {
-                $this->extract_from_elementor($page_id, $image_ids, $image_sources, $missing_images, $debug_info, $page_id);
-             }
-        
-            // Extract from HTML
-            $debug_urls = array();
-            $this->extract_from_html($page_id, $image_ids, $debug_urls, $image_sources);
-            $debug_info['html_found_urls'] = count($debug_urls);
+            // ✅ Categorize loaded images (check which exist on disk)
+            $valid_images = array();
+            $missing_files = array();
+            
+            foreach ($image_ids as $id) {
+                $file_path = get_attached_file($id);
+                if ($file_path && file_exists($file_path)) {
+                    $valid_images[] = $id;
+                } else {
+                    $missing_files[] = $id;
+                }
+            }
+            
+            error_log("📊 After categorization: valid=" . count($valid_images) . ", missing=" . count($missing_files));
+            $debug_info['loaded_from_scan'] = true;
+            $debug_info['scan_images_count'] = $images_found_in_scan;
+        } else {
+            // ❌ NO SCAN DATA - User must run scan first
+            error_log("❌ No saved scan data - user must run 'Collect Images from All Pages' first");
+            
+            return array(
+                'error' => 'no_scan_data',
+                'message' => 'Please run "Collect Images from All Pages & Save" first.',
+                'page_usage_data' => array(),
+                'orphaned_files' => array(),
+                'duplicates' => array(),
+                'debug_info' => array('loaded_from_scan' => false),
+                'count' => 0
+            );
         }
         // Remove duplicates
         $image_ids = array_unique($image_ids);
