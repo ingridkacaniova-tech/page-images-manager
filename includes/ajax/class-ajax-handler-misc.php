@@ -1321,7 +1321,6 @@ class PIM_Ajax_Handler_Misc {
         
         $start_time = microtime(true);
         
-        // 1. Get all published pages
         $pages = get_posts([
             'post_type' => 'page',
             'post_status' => 'publish',
@@ -1335,69 +1334,45 @@ class PIM_Ajax_Handler_Misc {
         $total_images_processed = 0;
         $total_uses_found = 0;
         
-        // 2. Scan each page
         foreach ($pages as $page) {
             error_log("\n📄 === Scanning Page: {$page->post_title} (ID: {$page->ID}) ===");
             
             $extractor = new PIM_Image_Extractor();
             $data = $extractor->extract_all_images($page->ID);
             
-            if (!isset($data['image_details']) || empty($data['image_details'])) {
-                error_log("  ℹ️ No image_details found on this page");
+            $page_usage_data = $data['page_usage_data'][$page->ID] ?? array();
+            
+            if (empty($page_usage_data)) {
+                error_log("  ℹ️ No images found on this page");
                 continue;
             }
             
-            error_log("  📊 Found " . count($data['image_details']) . " images on this page");
+            $this->process_and_save_images(
+                $page->ID,
+                $page_usage_data['existing_images'] ?? array(),
+                'existing_images',
+                $total_images_processed,
+                $total_uses_found
+            );
             
-            // 3. Process each image
-            foreach ($data['image_details'] as $image_id => $uses) {
-                error_log("\n  📷 Processing Image #{$image_id}");
-                error_log("    Uses on this page: " . count($uses));
-                
-                // 4. Get existing _pim_page_usage for this image
-                $existing_usage = get_post_meta($image_id, '_pim_page_usage', true);
-                if (!is_array($existing_usage)) {
-                    $existing_usage = array();
-                    error_log("    ℹ️ No existing _pim_page_usage, creating new");
-                } else {
-                    error_log("    ℹ️ Found existing _pim_page_usage with " . count($existing_usage) . " pages");
-                }
-                
-                // 5. Build page usage data for THIS page (FLAT ARRAY)
-                $page_usage = array();
-                
-                foreach ($uses as $use) {
-                    $size_name = $use['size_name'];
-                    $source = $use['source'];
-                    $elementor_id = $use['elementor_id'];
-                    $file_url = $use['file_url'];
-                    
-                    error_log("      📊 Use: size={$size_name}, source={$source}, elementor={$elementor_id}");
-                    
-                    // ✅ FLAT STRUCTURE - just append to array
-                    $page_usage[] = array(
-                        'size_name' => $size_name,
-                        'elementor_id' => $elementor_id,
-                        'source' => $source,
-                        'file_url' => $file_url
-                    );
-                    
-                    $total_uses_found++;
-                }
-                
-                // 6. Update/add this page's usage
-                $existing_usage[$page->ID] = $page_usage;
-                
-                error_log("    📝 Page usage for page #{$page->ID}: " . count($page_usage) . " uses");
-                
-                // 7. Save back to postmeta
-                update_post_meta($image_id, '_pim_page_usage', $existing_usage);
-                
-                error_log("    ✅ Saved _pim_page_usage for image #{$image_id}");
-                error_log("       Total pages using this image: " . count($existing_usage));
-                
-                $total_images_processed++;
+            $this->process_and_save_images(
+                $page->ID,
+                $page_usage_data['missing_in_files'] ?? array(),
+                'missing_in_files',
+                $total_images_processed,
+                $total_uses_found
+            );
+            
+            $missing_db = $page_usage_data['missing_in_database'] ?? array();
+            if (!empty($missing_db)) {
+                update_post_meta($page->ID, '_pim_missing_in_database', $missing_db);
+                error_log("  💾 Saved " . count($missing_db) . " missing_in_database entries to page meta");
             }
+        }
+        
+        if (isset($data['orphaned_files']) && !empty($data['orphaned_files'])) {
+            update_option('pim_orphaned_files', $data['orphaned_files']);
+            error_log("💾 Saved " . count($data['orphaned_files']) . " orphaned files to wp_options");
         }
         
         $duration = round((microtime(true) - $start_time), 2);
@@ -1408,7 +1383,6 @@ class PIM_Ajax_Handler_Misc {
         error_log("  Total uses found: {$total_uses_found}");
         error_log("  Duration: {$duration} seconds");
         
-        // 8. Save scan info to wp_options
         update_option('pim_last_scan', array(
             'timestamp' => current_time('mysql'),
             'duration' => $duration,
@@ -1434,7 +1408,45 @@ class PIM_Ajax_Handler_Misc {
             'total_uses' => $total_uses_found
         ));
     }
-
+    
+    private function process_and_save_images($page_id, $images_data, $category, &$total_images_processed, &$total_uses_found) {
+        $by_image = array();
+        
+        foreach ($images_data as $img) {
+            $image_id = intval($img['id']);
+            if ($image_id <= 0) continue;
+            
+            if (!isset($by_image[$image_id])) {
+                $by_image[$image_id] = array();
+            }
+            
+            $by_image[$image_id][] = $img;
+        }
+        
+        foreach ($by_image as $image_id => $uses) {
+            $existing_usage = get_post_meta($image_id, '_pim_page_usage', true);
+            if (!is_array($existing_usage)) {
+                $existing_usage = array();
+            }
+            
+            if (!isset($existing_usage[$page_id])) {
+                $existing_usage[$page_id] = array(
+                    'existing_images' => array(),
+                    'missing_in_files' => array(),
+                    'missing_in_database' => array()
+                );
+            }
+            
+            $existing_usage[$page_id][$category] = $uses;
+            
+            update_post_meta($image_id, '_pim_page_usage', $existing_usage);
+            
+            $total_images_processed++;
+            $total_uses_found += count($uses);
+            
+            error_log("  💾 Image #{$image_id}: Saved " . count($uses) . " uses in category '{$category}'");
+        }
+    }
 
     /**
      * ✅ NEW: Export image list to CSV

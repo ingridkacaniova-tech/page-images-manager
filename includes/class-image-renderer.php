@@ -22,13 +22,71 @@ class PIM_Image_Renderer {
      * Generate complete HTML output
      */
     public function generate_html($data) {
-        $valid_images = $data['valid_images'];
-        $missing_files = $data['missing_files'];
-        $missing_image_ids = $data['missing_image_ids'];
-        $image_sources = $data['image_sources'];
-        $duplicates = $data['duplicates'];
-        $debug_info = $data['debug_info'];
+        $page_usage_data = $data['page_usage_data'] ?? array();
+        $orphaned_files = $data['orphaned_files'] ?? array();
+        $duplicates = $data['duplicates'] ?? array();
+        $debug_info = $data['debug_info'] ?? array();
         
+        $page_id = !empty($page_usage_data) ? key($page_usage_data) : 0;
+        $page_data = $page_usage_data[$page_id] ?? array();
+        
+        $existing_images_data = $page_data['existing_images'] ?? array();
+        $missing_files_data = $page_data['missing_in_files'] ?? array();
+        $missing_db_data = $page_data['missing_in_database'] ?? array();
+        
+        $valid_images = array();
+        foreach ($existing_images_data as $img) {
+            $id = intval($img['id']);
+            if ($id > 0 && !in_array($id, $valid_images)) {
+                $valid_images[] = $id;
+            }
+        }
+        
+        $missing_files = array();
+        foreach ($missing_files_data as $img) {
+            $id = intval($img['id']);
+            if ($id > 0 && !in_array($id, $missing_files)) {
+                $missing_files[] = $id;
+            }
+        }
+        
+        $missing_image_ids = array();
+        foreach ($missing_db_data as $img) {
+            $missing_image_ids[$img['id']] = array(
+                'id' => $img['id'],
+                'url' => $img['file_url']
+            );
+        }
+        
+        $image_sources = array();
+        foreach ($existing_images_data as $img) {
+            $id = intval($img['id']);
+            if ($id > 0) {
+                if (!isset($image_sources[$id])) {
+                    $image_sources[$id] = array();
+                }
+                $source = $img['source'];
+                if (!empty($source) && !in_array($source, $image_sources[$id])) {
+                    $image_sources[$id][] = $source;
+                }
+            }
+        }
+        
+        foreach ($missing_files_data as $img) {
+            $id = intval($img['id']);
+            if ($id > 0) {
+                if (!isset($image_sources[$id])) {
+                    $image_sources[$id] = array();
+                }
+                $source = $img['source'];
+                if (!empty($source) && !in_array($source, $image_sources[$id])) {
+                    $image_sources[$id][] = $source;
+                }
+            }
+        }
+        
+        error_log("🎨 Renderer: valid_images=" . count($valid_images) . ", missing_files=" . count($missing_files) . ", missing_db=" . count($missing_image_ids));
+            
         ob_start();
         
         $custom_sizes = $this->size_helper->get_custom_sizes();
@@ -176,8 +234,14 @@ class PIM_Image_Renderer {
             echo '</div>';
             
             echo '<div class="pim-section-content" id="orphan-files-content">';
-            foreach ($orphan_files as $orphan) {
-                $this->render_orphan_file_row($orphan);
+            foreach ($orphaned_files as $orphan) {
+                $orphan_old_format = array(
+                    'file' => basename($orphan['file_url']),
+                    'path' => $orphan['file_url'],
+                    'size' => 0,
+                    'url' => ''
+                );
+                $this->render_orphan_file_row($orphan_old_format);
             }
             echo '</div>';
             echo '</div>';

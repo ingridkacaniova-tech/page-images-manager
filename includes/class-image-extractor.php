@@ -144,13 +144,21 @@ class PIM_Image_Extractor {
         error_log('PIM DEBUG: valid_images = ' . print_r($valid_images, true));
 
         // Return data
+        error_log("\n🔧 === BUILDING PAGE USAGE STRUCTURE ===");
+
+        $page_usage_structure = $this->build_page_usage_structure(
+            $page_id,
+            $valid_images,
+            $missing_files,
+            $missing_image_ids,
+            $orphan_files
+        );
+
+        error_log("✅ Page usage structure built successfully");
+
         return array(
-            'valid_images' => $valid_images,
-            'missing_files' => $missing_files,
-            'missing_image_ids' => $missing_image_ids,
-            'orphan_files' => $orphan_files,
-            'image_sources' => $image_sources,      // ← OLD (zachované)
-            'image_details' => $this->image_details, // ← NEW!
+            'page_usage_data' => $page_usage_structure['page_usage_data'],
+            'orphaned_files' => $page_usage_structure['orphaned_files'],
             'duplicates' => $duplicates,
             'debug_info' => $debug_info,
             'count' => count($valid_images) + count($missing_files) + count($missing_image_ids) + count($orphan_files)
@@ -888,5 +896,89 @@ class PIM_Image_Extractor {
         // No dimensions in URL → probably original file
         error_log("  ℹ️ No dimensions found in URL, using: full");
         return 'full';
+    }
+
+    private function build_page_usage_structure($page_id, $valid_images, $missing_files, $missing_image_ids, $orphan_files) {
+        error_log("🔨 Building page usage structure for page #{$page_id}");
+        
+        $structure = array(
+            'page_usage_data' => array(
+                $page_id => array(
+                    'existing_images' => array(),
+                    'missing_in_files' => array(),
+                    'missing_in_database' => array()
+                )
+            ),
+            'orphaned_files' => array()
+        );
+        
+        error_log("📋 Processing " . count($valid_images) . " existing images");
+        foreach ($valid_images as $image_id) {
+            if (!isset($this->image_details[$image_id])) {
+                error_log("⚠️ Image #{$image_id} has no details, skipping");
+                continue;
+            }
+            
+            foreach ($this->image_details[$image_id] as $use) {
+                $structure['page_usage_data'][$page_id]['existing_images'][] = array(
+                    'id' => $image_id,
+                    'size_name' => $use['size_name'] ?? '',
+                    'elementor_id' => $use['elementor_id'] ?? '',
+                    'source' => $use['source'] ?? '',
+                    'file_url' => $use['file_url'] ?? ''
+                );
+            }
+        }
+        
+        error_log("📋 Processing " . count($missing_files) . " missing files");
+        foreach ($missing_files as $image_id) {
+            if (!isset($this->image_details[$image_id])) {
+                error_log("⚠️ Missing file #{$image_id} has no details, skipping");
+                continue;
+            }
+            
+            foreach ($this->image_details[$image_id] as $use) {
+                $structure['page_usage_data'][$page_id]['missing_in_files'][] = array(
+                    'id' => $image_id,
+                    'size_name' => $use['size_name'] ?? '',
+                    'elementor_id' => $use['elementor_id'] ?? '',
+                    'source' => $use['source'] ?? '',
+                    'file_url' => $use['file_url'] ?? ''
+                );
+            }
+        }
+        
+        error_log("📋 Processing " . count($missing_image_ids) . " missing in database");
+        foreach ($missing_image_ids as $missing_id => $missing_data) {
+            $structure['page_usage_data'][$page_id]['missing_in_database'][] = array(
+                'id' => $missing_id,
+                'size_name' => '',
+                'elementor_id' => $missing_data['elementor_id'] ?? '',
+                'source' => '',
+                'file_url' => $missing_data['url'] ?? ''
+            );
+        }
+        
+        error_log("📋 Processing " . count($orphan_files) . " orphaned files");
+        foreach ($orphan_files as $orphan) {
+            $file_path = $orphan['path'] ?? '';
+            
+            $structure['orphaned_files'][] = array(
+                'id' => md5($file_path),
+                'size_name' => '',
+                'elementor_id' => '',
+                'source' => '',
+                'file_url' => $file_path
+            );
+        }
+        
+        error_log("🎉 Structure complete: " . 
+            count($structure['page_usage_data'][$page_id]['existing_images']) . " existing, " .
+            count($structure['page_usage_data'][$page_id]['missing_in_files']) . " missing files, " .
+            count($structure['page_usage_data'][$page_id]['missing_in_database']) . " missing db, " .
+            count($structure['orphaned_files']) . " orphaned"
+        );
+        
+        return $structure;
     }
 }

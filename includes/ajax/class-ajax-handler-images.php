@@ -66,15 +66,11 @@ class PIM_Ajax_Handler_Images {
         }
 
         $html = $this->renderer->generate_html($data);
-        
+
         wp_send_json_success(array(
             'html' => $html,
             'count' => $data['count'],
-            'image_details' => $data['image_details'], // ← PRIDAJ TENTO RIADOK!
             'debug_data' => array(
-                'valid_images' => $data['valid_images'],
-                'missing_files' => $data['missing_files'],
-                'missing_image_ids' => $data['missing_image_ids'],
                 'debug_info' => $data['debug_info']
             )
         ));
