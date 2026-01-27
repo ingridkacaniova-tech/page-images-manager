@@ -19,6 +19,28 @@ class PIM_Image_Extractor {
     public function extract_all_images($page_id) {
         // 🔍 DIAGNOSTIC: Check if _pim_page_usage interferes
         error_log("\n🔍 === DIAGNOSTIC: EXTRACT START ===");
+        
+        // ✅ LOG CALLSTACK HNEĎ NA ZAČIATKU
+        $bt = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 15);
+        error_log("📞 EXTRACT CALL STACK:");
+        foreach ($bt as $i => $trace) {
+            $func = isset($trace['function']) ? $trace['function'] : 'unknown';
+            $class = isset($trace['class']) ? $trace['class'] . '::' : '';
+            $file = isset($trace['file']) ? basename($trace['file']) : 'unknown';
+            $line = isset($trace['line']) ? $trace['line'] : '?';
+            
+            // ✅ LOG ARGUMENTS!
+            $args = isset($trace['args']) ? $trace['args'] : array();
+            $args_str = '';
+            if (!empty($args)) {
+                $args_str = ' | Args: ' . print_r($args, true);
+            }
+            
+            error_log("   #{$i} {$class}{$func}() in {$file}:{$line}{$args_str}");
+        }
+        
+        error_log("Page ID parameter received: {$page_id}");
+        error_log("Page ID type: " . gettype($page_id));
         error_log("Page ID: {$page_id}");
         
         // Check image #10152 specifically
