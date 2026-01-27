@@ -172,7 +172,6 @@ class PIM_Image_Extractor {
     private function load_from_saved_scan($page_id, &$image_ids, &$image_sources) {
         global $wpdb;
         
-        // ✅ BETTER: Get ALL attachments with _pim_page_usage, then filter in PHP
         $query = "
             SELECT post_id, meta_value
             FROM {$wpdb->postmeta}
@@ -189,45 +188,75 @@ class PIM_Image_Extractor {
         error_log("📦 Checking " . count($results) . " images for page #{$page_id} usage");
         
         $count = 0;
+        $page_id_int = intval($page_id);
         
         foreach ($results as $row) {
             $image_id = intval($row->post_id);
             $page_usage = maybe_unserialize($row->meta_value);
             
-            // 🔍 DIAGNOSTIC
-            error_log("🔍 IK1 Checking image #{$image_id}");
-            error_log("   page_usage type: " . gettype($page_usage));
-            if (is_array($page_usage)) {
-                error_log("   page_usage keys: " . implode(', ', array_keys($page_usage)));
-                error_log("   Looking for page_id: {$page_id}");
-                error_log("   Has this page? " . (isset($page_usage[$page_id]) ? 'YES' : 'NO'));
-            } else {
-                error_log("   ❌ page_usage is NOT array!");
-            }
-            
-            // ✅ Check if this image is used on current page (force int comparison)
-            $page_id_int = intval($page_id);
             if (!is_array($page_usage) || !isset($page_usage[$page_id_int])) {
                 continue;
             }
             
-            $image_ids[] = $image_id;
+            $page_data = $page_usage[$page_id_int];
             
-            if (!isset($image_sources[$image_id])) {
-                $image_sources[$image_id] = array();
-            }
-            
-            // ✅ Extract unique sources from usage data
-            foreach ($page_usage[$page_id] as $use) {
-                $source = $use['source'];
+            // ✅ NEW: Handle hierarchical structure
+            if (isset($page_data['existing_images']) || isset($page_data['missing_in_files'])) {
+                // New hierarchical structure
+                error_log("  ✅ Image #{$image_id}: Found NEW structure");
                 
-                if (!in_array($source, $image_sources[$image_id])) {
-                    $image_sources[$image_id][] = $source;
+                $image_ids[] = $image_id;
+                
+                if (!isset($image_sources[$image_id])) {
+                    $image_sources[$image_id] = array();
                 }
+                
+                // Extract sources from existing_images
+                if (isset($page_data['existing_images'])) {
+                    foreach ($page_data['existing_images'] as $img) {
+                        $source = $img['source'] ?? '';
+                        if (!empty($source) && !in_array($source, $image_sources[$image_id])) {
+                            $image_sources[$image_id][] = $source;
+                        }
+                    }
+                }
+                
+                // Extract sources from missing_in_files
+                if (isset($page_data['missing_in_files'])) {
+                    foreach ($page_data['missing_in_files'] as $img) {
+                        $source = $img['source'] ?? '';
+                        if (!empty($source) && !in_array($source, $image_sources[$image_id])) {
+                            $image_sources[$image_id][] = $source;
+                        }
+                    }
+                }
+                
+                error_log("    Sources: " . implode(', ', $image_sources[$image_id]));
+                $count++;
+                
+            } else {
+                // Old flat structure (backwards compatibility)
+                error_log("  ⚠️ Image #{$image_id}: Found OLD flat structure");
+                
+                $image_ids[] = $image_id;
+                
+                if (!isset($image_sources[$image_id])) {
+                    $image_sources[$image_id] = array();
+                }
+                
+                // Extract sources from flat array
+                foreach ($page_data as $use) {
+                    if (is_array($use) && isset($use['source'])) {
+                        $source = $use['source'];
+                        if (!in_array($source, $image_sources[$image_id])) {
+                            $image_sources[$image_id][] = $source;
+                        }
+                    }
+                }
+                
+                error_log("    Sources: " . implode(', ', $image_sources[$image_id]));
+                $count++;
             }
-            
-            error_log("  ✅ Image #{$image_id}: " . implode(', ', $image_sources[$image_id]));
-            $count++;
         }
         
         error_log("📊 Total images for page #{$page_id}: {$count}");
