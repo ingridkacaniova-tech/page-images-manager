@@ -36,6 +36,13 @@ class PIM_Size_Helper {
     public function detect_existing_thumbnails($image_id, $image_meta) {
         $existing = array();
         
+        // ✅ EXTRA LOGGING FOR IMG_2510 (ID: 10152)
+        $is_img_2510 = ($image_id == 10152);
+        
+        if ($is_img_2510) {
+            error_log("\n🎯 === SPECIAL DEBUG FOR IMG_2510 (ID: 10152) ===");
+        }
+        
         // ✅ WHO CALLED ME?
         $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 5);
         $caller = isset($backtrace[1]) ? $backtrace[1]['function'] : 'unknown';
@@ -45,13 +52,16 @@ class PIM_Size_Helper {
         
         error_log("\n🔍 === DETECTING THUMBNAILS FOR IMAGE #{$image_id} ===");
         error_log("📞 CALLED FROM: {$caller_class}::{$caller}() in {$caller_file}:{$caller_line}");
-        error_log("📞 CALL STACK:");
-        foreach ($backtrace as $i => $trace) {
-            $func = isset($trace['function']) ? $trace['function'] : 'unknown';
-            $class = isset($trace['class']) ? $trace['class'] . '::' : '';
-            $file = isset($trace['file']) ? basename($trace['file']) : 'unknown';
-            $line = isset($trace['line']) ? $trace['line'] : '?';
-            error_log("   #{$i} {$class}{$func}() in {$file}:{$line}");
+        
+        if ($is_img_2510) {
+            error_log("📞 CALL STACK:");
+            foreach ($backtrace as $i => $trace) {
+                $func = isset($trace['function']) ? $trace['function'] : 'unknown';
+                $class = isset($trace['class']) ? $trace['class'] . '::' : '';
+                $file = isset($trace['file']) ? basename($trace['file']) : 'unknown';
+                $line = isset($trace['line']) ? $trace['line'] : '?';
+                error_log("   #{$i} {$class}{$func}() in {$file}:{$line}");
+            }
         }
         
         $file_path = get_attached_file($image_id);
@@ -68,13 +78,25 @@ class PIM_Size_Helper {
         $dir = dirname($file_path);
         $custom_sizes = $this->get_custom_sizes();
         
-        error_log("\n🔍 === DETECTING THUMBNAILS FOR IMAGE #{$image_id} ===");
         error_log("📁 Directory: " . $dir);
         error_log("📄 Main file: " . basename($file_path));
+        
+        // ✅ IMG_2510: Show metadata BEFORE processing
+        if ($is_img_2510) {
+            error_log("📋 RAW METADATA FOR IMG_2510:");
+            error_log(print_r($image_meta, true));
+        }
         
         // Method 1: Check metadata (fast but can be outdated)
         if (isset($image_meta['sizes']) && is_array($image_meta['sizes'])) {
             error_log("📋 Metadata has " . count($image_meta['sizes']) . " size(s) registered");
+            
+            if ($is_img_2510) {
+                error_log("📋 IMG_2510 METADATA SIZES:");
+                foreach ($image_meta['sizes'] as $size => $data) {
+                    error_log("  - {$size}: {$data['file']} ({$data['width']}x{$data['height']})");
+                }
+            }
             
             foreach ($custom_sizes as $size_name => $size_data) {
                 if (isset($image_meta['sizes'][$size_name]['file'])) {
@@ -102,6 +124,17 @@ class PIM_Size_Helper {
         
         error_log("🔍 Scanning filesystem for: {$base_name}-*x*." . $extension);
         
+        // ✅ IMG_2510: Scan ALL files on disk
+        if ($is_img_2510) {
+            $pattern = $dir . '/IMG_2510-scaled-*';
+            $all_files = glob($pattern);
+            error_log("📁 ALL IMG_2510-scaled-* FILES ON DISK:");
+            foreach ($all_files as $f) {
+                $exists = file_exists($f) ? '✅' : '❌';
+                error_log("  {$exists} " . basename($f));
+            }
+        }
+        
         foreach ($custom_sizes as $size_name => $size_data) {
             // Skip if already found in metadata
             if (in_array($size_name, $existing)) {
@@ -115,17 +148,30 @@ class PIM_Size_Helper {
             $expected_filename = $base_name . '-' . $width . 'x' . $height . '.' . $extension;
             $expected_path = $dir . '/' . $expected_filename;
             
-            error_log("   🔎 Checking: " . $expected_filename);
+            if ($is_img_2510) {
+                error_log("   🔎 Checking {$size_name} ({$width}x{$height}): " . $expected_filename);
+            } else {
+                error_log("   🔎 Checking: " . $expected_filename);
+            }
             
             // Check if file exists
             if (file_exists($expected_path)) {
                 $existing[] = $size_name;
                 error_log("✅ [FILESYSTEM] Found: {$size_name} → " . $expected_filename);
+            } else {
+                if ($is_img_2510) {
+                    error_log("❌ [FILESYSTEM] NOT FOUND: {$expected_filename}");
+                }
             }
         }
         
         error_log("📊 Total existing thumbnails: " . count($existing) . " → " . implode(', ', $existing));
-        error_log("🔍 === END DETECTION ===\n");
+        
+        if ($is_img_2510) {
+            error_log("🎯 === END IMG_2510 DEBUG ===\n");
+        } else {
+            error_log("🔍 === END DETECTION ===\n");
+        }
         
         return $existing;
     }
@@ -223,12 +269,11 @@ class PIM_Size_Helper {
     }
     
     /**
-     * ✅ ISSUE 57 - Enhanced preselection for RECOVERED - FILL IN source
-     * Add to get_preselected_size() method
+     * Get preselected size for a source on INITIAL load
      */
     public function get_preselected_size($image_id, $source, $image_meta = null) {
         error_log("\n🎯 === GET_PRESELECTED_SIZE ===");
-        error_log("📷 Image ID: {$image_id}");
+        error_log("🆔 Image ID: {$image_id}");
         error_log("📍 Source: {$source}");
         
         // Get metadata if not provided
@@ -244,44 +289,6 @@ class PIM_Size_Helper {
             return null;
         }
         
-        // ✅ SPECIAL HANDLING FOR "RECOVERED - FILL IN" SOURCE
-        if ($source === 'RECOVERED - FILL IN') {
-            error_log("🔄 Special handling for RECOVERED - FILL IN source");
-            
-            if (isset($image_meta['sizes']) && is_array($image_meta['sizes'])) {
-                error_log("📋 Available sizes: " . implode(', ', array_keys($image_meta['sizes'])));
-                
-                // Find the most recently added size (last in array)
-                $sizes_keys = array_keys($image_meta['sizes']);
-                $last_size_key = end($sizes_keys);
-                $last_size_data = $image_meta['sizes'][$last_size_key];
-                
-                error_log("🔍 Last added size: {$last_size_key}");
-                
-                // Try to match dimensions to standard size
-                if (isset($last_size_data['width']) && isset($last_size_data['height'])) {
-                    $width = $last_size_data['width'];
-                    $height = $last_size_data['height'];
-                    
-                    $matched = $this->match_size_by_dimensions($width, $height);
-                    
-                    if ($matched) {
-                        error_log("✅ PRESELECTING (matched): {$matched} for {$width}×{$height}");
-                        error_log("🎯 === RESULT: {$matched} ===\n");
-                        return $matched;
-                    }
-                }
-                
-                // If it's a non-standard size
-                if (strpos($last_size_key, 'non-standard-') === 0) {
-                    error_log("⚠️ PRESELECTING: non-standard (last added size is non-standard)");
-                    error_log("🎯 === RESULT: non-standard ===\n");
-                    return 'non-standard';
-                }
-            }
-        }
-        
-        // ✅ EXISTING LOGIC FOR OTHER SOURCES
         // Log what we have in metadata
         if (isset($image_meta['sizes'])) {
             error_log("📋 Metadata has sizes: " . implode(', ', array_keys($image_meta['sizes'])));
@@ -289,7 +296,7 @@ class PIM_Size_Helper {
             error_log("⚠️ Metadata has no 'sizes' array");
         }
         
-        // Detect existing thumbnails
+        // Detect existing thumbnails (uses improved detection)
         $existing_thumbnails = $this->detect_existing_thumbnails($image_id, $image_meta);
         
         if (empty($existing_thumbnails)) {
@@ -334,28 +341,42 @@ class PIM_Size_Helper {
         $custom_sizes = $this->get_custom_sizes();
         return isset($custom_sizes[$size_name]);
     }
-
-    /**
-     * ✅ Match size by dimensions
-     */
-    public function match_size_by_dimensions($width, $height) {
-        $all_sizes = wp_get_registered_image_subsizes();
-        
-        foreach ($all_sizes as $size_name => $size_data) {
-            $size_width = $size_data['width'] ?? 0;
-            $size_height = $size_data['height'] ?? 0;
-            
-            // Exact match
-            if ($width == $size_width && $height == $size_height) {
-                return $size_name;
-            }
-            
-            // Match with height = 0 (proportional width)
-            if ($size_height == 0 && $width == $size_width) {
-                return $size_name;
-            }
+    
+    public function match_size_from_url($url) {
+        if (empty($url)) {
+            return '';
         }
         
-        return null;
+        $filename = basename(parse_url($url, PHP_URL_PATH));
+        
+        if (preg_match('/-(\d+)x(\d+)\.(jpg|jpeg|png|gif|webp)$/i', $filename, $matches)) {
+            $width = intval($matches[1]);
+            $height = intval($matches[2]);
+            
+            $hardcoded_sizes = array(
+                '1920x1080' => 'hero',
+                '250x0' => 'carousel-photo',
+                '768x0' => 'standard-page-photo',
+                '355x0' => 'teaser-photo',
+                '2560x0' => 'page-background',
+                '510x640' => 'small-carousel-cards'
+            );
+            
+            $key = $width . 'x' . $height;
+            if (isset($hardcoded_sizes[$key])) {
+                return $hardcoded_sizes[$key];
+            }
+            
+            foreach ($hardcoded_sizes as $dim => $name) {
+                list($w, $h) = explode('x', $dim);
+                if ($width == $w && $h == 0) {
+                    return $name;
+                }
+            }
+            
+            return "non-standard-{$width}x{$height}";
+        }
+        
+        return '';
     }
 }

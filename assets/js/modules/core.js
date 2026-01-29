@@ -237,7 +237,7 @@ const PIM_Core = (function($) {
         
         showLoading('Refreshing images...');
         
-        ajax('get_page_images', { page_id: pageId }, 
+        ajax('load_page_images_from_saved_data', { page_id: pageId }, 
             function(data) {
                 $('#images-list').html(data.html);
                 hideLoading();

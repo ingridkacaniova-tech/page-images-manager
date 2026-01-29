@@ -113,6 +113,34 @@
         });
     });
 
+    // ============================================
+    // ✅ ISSUE -1: REPAIR ELEMENTOR URLS BUTTON
+    // ============================================
+    
+    $('#repair-elementor-btn').click(function() {
+        const btn = $(this);
+        
+        if (!confirm('⚠️ This will repair Elementor URLs across all pages.\n\nIt will fix URLs that lost the "-scaled" suffix or have incorrect dimensions.\n\nContinue?')) {
+            return;
+        }
+        
+        btn.prop('disabled', true);
+        const toastId = PIM_Toast.progress('Repairing Elementor URLs...', 0, 'wave+pulse');
+        
+        PIM_Core.ajax('repair_elementor_urls', {}, 
+            function(data) {
+                PIM_Toast.closeProgress(toastId);
+                PIM_Toast.success(`✅ ${data.message || 'Repair complete!'}`);
+                btn.prop('disabled', false);
+            },
+            function(error) {
+                PIM_Toast.closeProgress(toastId);
+                PIM_Toast.error(`❌ Repair failed: ${error}`);
+                btn.prop('disabled', false);
+            }
+        );
+    });
+
     /**
      * ✅ Scan all pages with progress updates
      */
@@ -147,7 +175,7 @@
         let progressInterval; // ✅ Declare here so we can clear it later
         
         // ✅ Start actual scan (SINGLE AJAX REQUEST)
-        PIM_Core.ajax('scan_pages_batch', {}, 
+        PIM_Core.ajax('collect_base_images_data_from_all_pages', {}, 
             function(data) {
                 // ✅ CRITICAL: Clear interval when AJAX completes
                 clearInterval(progressInterval);

@@ -26,6 +26,9 @@ if (!defined('ABSPATH')) {
             <button id="collect-images-btn" class="button button-primary">
                 🔄 Collect Images from All Pages & Save to Database
             </button>
+            <button id="repair-elementor-btn" class="button button-secondary" style="background: #f0ad4e; border-color: #f0ad4e; color: white;">
+                🔧 Repair Elementor URLs
+            </button>
             <button id="show-scan-info-btn" class="button button-secondary">
                 📊 Show Last Scan Info  
             </button>
@@ -78,6 +81,10 @@ if (!defined('ABSPATH')) {
                 
                 <button type="button" id="load-images-btn" class="button button-primary" disabled>
                     <?php echo esc_html__('Load Images', 'page-images-manager'); ?>
+                </button>
+                
+                <button type="button" id="export-elementor-json-btn" class="button button-secondary" disabled style="background: #8e44ad; border-color: #8e44ad; color: white;">
+                    📄 Export Elementor JSON
                 </button>
                 
                 <span id="load-status"></span>

@@ -41,9 +41,15 @@ class PIM_Ajax_Handler_Misc {
 
         // ✅ NEW: Scan all pages functionality
         add_action('wp_ajax_get_total_pages', array($this, 'get_total_pages'));
-        add_action('wp_ajax_scan_pages_batch', array($this, 'scan_pages_batch'));
+        add_action('wp_ajax_collect_base_images_data_from_all_pages', array($this, 'collect_base_images_data_from_all_pages'));
         add_action('wp_ajax_export_image_list', array($this, 'export_image_list'));
         add_action('wp_ajax_get_latest_scan', array($this, 'get_latest_scan'));
+        
+        // ✅ ISSUE -1: Repair Elementor URLs
+        add_action('wp_ajax_repair_elementor_urls', array($this, 'repair_elementor_urls'));
+        
+        // ✅ DEBUG: Export Elementor JSON
+        add_action('wp_ajax_export_elementor_json', array($this, 'export_elementor_json'));
     }
 
     /**
@@ -1312,10 +1318,10 @@ class PIM_Ajax_Handler_Misc {
     /**
      * ✅ Scan all pages and save to _pim_page_usage (FLAT STRUCTURE)
      */
-    public function scan_pages_batch() {
-        PIM_Debug_Logger::log_session_start('scan_pages_batch');
+    public function collect_base_images_data_from_all_pages() {
+        PIM_Debug_Logger::log_session_start('collect_base_images_data_from_all_pages');
         
-        error_log("\n🔄🔄🔄 === SCAN PAGES BATCH START === 🔄🔄🔄");
+        error_log("\n🔄🔄🔄 === COLLECT BASE IMAGES DATA FROM ALL PAGES START === 🔄🔄🔄");
         
         check_ajax_referer('page_images_manager', 'nonce');
         
@@ -1333,14 +1339,55 @@ class PIM_Ajax_Handler_Misc {
         
         $total_images_processed = 0;
         $total_uses_found = 0;
+        $all_scan_data = array();
+        $global_orphaned_files = array();
+        $global_duplicates = array();
+        $global_debug_info = array();
+        $total_count = 0;
         
         foreach ($pages as $page) {
             error_log("\n📄 === Scanning Page: {$page->post_title} (ID: {$page->ID}) ===");
             
             $extractor = new PIM_Image_Extractor();
-            $data = $extractor->extract_all_images($page->ID);
+            $data = $extractor->collect_base_data_from_page($page->ID);
             
             $page_usage_data = $data['page_usage_data'][$page->ID] ?? array();
+            
+            $all_scan_data[$page->ID] = $data;
+            
+            if (!empty($data['orphaned_files'])) {
+                $global_orphaned_files = array_merge($global_orphaned_files, $data['orphaned_files']);
+            }
+            
+            if (!empty($data['duplicates'])) {
+                foreach ($data['duplicates'] as $primary_id => $dups) {
+                    if (!isset($global_duplicates[$primary_id])) {
+                        $global_duplicates[$primary_id] = array();
+                    }
+                    $global_duplicates[$primary_id] = array_merge($global_duplicates[$primary_id], $dups);
+                }
+            }
+            
+            if (!empty($data['scan_summary'])) {
+                $total_count += $data['scan_summary']['count'] ?? 0;
+                
+                foreach ($data['scan_summary'] as $key => $value) {
+                    if ($key === 'count') {
+                        continue;
+                    }
+                    
+                    if ($key === 'widgets_found' && is_array($value)) {
+                        if (!isset($global_debug_info['widgets_found'])) {
+                            $global_debug_info['widgets_found'] = array();
+                        }
+                        foreach ($value as $widget => $count) {
+                            $global_debug_info['widgets_found'][$widget] = ($global_debug_info['widgets_found'][$widget] ?? 0) + $count;
+                        }
+                    } elseif (is_numeric($value)) {
+                        $global_debug_info[$key] = ($global_debug_info[$key] ?? 0) + $value;
+                    }
+                }
+            }
             
             if (empty($page_usage_data)) {
                 error_log("  ℹ️ No images found on this page");
@@ -1363,17 +1410,20 @@ class PIM_Ajax_Handler_Misc {
                 $total_uses_found
             );
             
-            $missing_db = $page_usage_data['missing_in_database'] ?? array();
-            if (!empty($missing_db)) {
-                update_post_meta($page->ID, '_pim_missing_in_database', $missing_db);
-                error_log("  💾 Saved " . count($missing_db) . " missing_in_database entries to page meta");
-            }
+            $this->process_and_save_images(
+                $page->ID,
+                $page_usage_data['missing_in_database'] ?? array(),
+                'missing_in_database',
+                $total_images_processed,
+                $total_uses_found
+            );
         }
         
-        if (isset($data['orphaned_files']) && !empty($data['orphaned_files'])) {
-            update_option('pim_orphaned_files', $data['orphaned_files']);
-            error_log("💾 Saved " . count($data['orphaned_files']) . " orphaned files to wp_options");
-        }
+        update_post_meta(0, '_pim_scan_data', array(
+            'orphaned_files' => $global_orphaned_files,
+            'duplicates' => $global_duplicates
+        ));
+        error_log("💾 Saved global scan data (orphaned_files + duplicates) to wp_postmeta(0)");
         
         $duration = round((microtime(true) - $start_time), 2);
         
@@ -1383,17 +1433,25 @@ class PIM_Ajax_Handler_Misc {
         error_log("  Total uses found: {$total_uses_found}");
         error_log("  Duration: {$duration} seconds");
         
-        update_option('pim_last_scan', array(
-            'timestamp' => current_time('mysql'),
-            'duration' => $duration,
-            'total_pages' => count($pages),
-            'total_images' => $total_images_processed,
-            'total_uses' => $total_uses_found,
-            'user' => wp_get_current_user()->display_name
-        ));
+        $scan_summary = array_merge(
+            array(
+                'timestamp' => current_time('mysql'),
+                'duration' => $duration,
+                'total_pages' => count($pages),
+                'total_images' => $total_images_processed,
+                'total_uses' => $total_uses_found,
+                'user' => wp_get_current_user()->display_name
+            ),
+            $global_debug_info,
+            array('count' => $total_count)
+        );
+        
+        update_option('pim_last_scan', $scan_summary);
+        
+        $this->save_scan_to_file($all_scan_data, $global_orphaned_files, $global_duplicates, $scan_summary);
         
         error_log("✅ Saved scan info to wp_options");
-        error_log("🔄🔄🔄 === SCAN PAGES BATCH END === 🔄🔄🔄\n");
+        error_log("🔄🔄🔄 === COLLECT BASE IMAGES DATA FROM ALL PAGES END === 🔄🔄🔄\n");
         
         wp_send_json_success(array(
             'message' => sprintf(
@@ -1407,6 +1465,34 @@ class PIM_Ajax_Handler_Misc {
             'total_images' => $total_images_processed,
             'total_uses' => $total_uses_found
         ));
+    }
+    
+    private function save_scan_to_file($all_scan_data, $global_orphaned_files, $global_duplicates, $scan_summary) {
+        $upload_dir = wp_upload_dir();
+        $file_path = $upload_dir['basedir'] . '/pim-scan-data-' . date('Y-m-d-H-i-s') . '.json';
+        
+        $combined_page_usage = array();
+        
+        foreach ($all_scan_data as $page_id => $data) {
+            if (isset($data['page_usage_data'][$page_id])) {
+                $combined_page_usage[$page_id] = $data['page_usage_data'][$page_id];
+            }
+        }
+        
+        $final_structure = array(
+            'page_usage_data' => $combined_page_usage,
+            'orphaned_files' => $global_orphaned_files,
+            'duplicates' => $global_duplicates,
+            'scan_summary' => $scan_summary
+        );
+        
+        $json_data = json_encode($final_structure, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        
+        if (file_put_contents($file_path, $json_data)) {
+            error_log("💾 Saved scan data to: {$file_path}");
+        } else {
+            error_log("❌ Failed to save scan data to file");
+        }
     }
     
     private function process_and_save_images($page_id, $images_data, $category, &$total_images_processed, &$total_uses_found) {
@@ -1546,5 +1632,277 @@ class PIM_Ajax_Handler_Misc {
         }
         
         return array_unique($all_sizes);
+    }
+
+    /**
+     * ✅ ISSUE -1: Repair Elementor URLs
+     * Fixes URLs that lost "-scaled" suffix or have incorrect dimensions
+     */
+    public function repair_elementor_urls() {
+        check_ajax_referer('page_images_manager', 'nonce');
+        
+        global $wpdb;
+        
+        $repaired_count = 0;
+        $error_count = 0;
+        
+        error_log("\n🔧 === REPAIR ELEMENTOR URLS START ===");
+        
+        $pages = get_pages(array(
+            'post_status' => 'publish,draft',
+            'number' => 99999
+        ));
+        
+        error_log("Found " . count($pages) . " pages to check");
+        
+        foreach ($pages as $page) {
+            $page_id = $page->ID;
+            $elementor_data = get_post_meta($page_id, '_elementor_data', true);
+            
+            if (empty($elementor_data)) {
+                continue;
+            }
+            
+            $data = json_decode($elementor_data, true);
+            if (!is_array($data)) {
+                continue;
+            }
+            
+            $modified = false;
+            $page_repairs = 0;
+            
+            $data = $this->repair_urls_recursive($data, $modified, $page_repairs);
+            
+            if ($modified) {
+                update_post_meta($page_id, '_elementor_data', wp_slash(json_encode($data)));
+                
+                if (class_exists('\\Elementor\\Plugin')) {
+                    \Elementor\Plugin::$instance->files_manager->clear_cache();
+                }
+                
+                $repaired_count += $page_repairs;
+                error_log("✅ Page #{$page_id}: Repaired {$page_repairs} URL(s)");
+            }
+        }
+        
+        error_log("🔧 === REPAIR COMPLETE: {$repaired_count} URLs repaired ===\n");
+        
+        wp_send_json_success(array(
+            'message' => "Repaired {$repaired_count} URL(s) across " . count($pages) . " pages"
+        ));
+    }
+
+    /**
+     * Recursively repair URLs in Elementor data
+     */
+    private function repair_urls_recursive(&$data, &$modified, &$repair_count, $parent_key = '', $parent_settings = array(), $depth = 0) {
+        if (!is_array($data)) {
+            return $data;
+        }
+        
+        foreach ($data as $key => &$value) {
+            if (is_array($value)) {
+                // ✅ Capture settings and element type for context
+                $current_settings = isset($value['settings']) ? $value['settings'] : array();
+                $el_type = isset($value['elType']) ? $value['elType'] : '';
+                
+                // ✅ Determine next depth level
+                $next_depth = ($el_type === 'container' || $el_type === 'section' || $el_type === 'column') ? $depth + 1 : $depth;
+                
+                // ✅ Handle image objects with id and url
+                if (isset($value['id']) && isset($value['url'])) {
+                    $image_id = intval($value['id']);
+                    $current_url = $value['url'];
+                    
+                    if ($image_id > 0) {
+                        // ✅ Detect context and determine expected size
+                        $expected_size = $this->detect_size_from_context($key, $parent_key, $value, $parent_settings, $depth);
+                        
+                        // ✅ Get correct URL based on context
+                        $correct_url = $this->get_correct_thumbnail_url_with_context($image_id, $current_url, $expected_size);
+                        
+                        if ($correct_url && $correct_url !== $current_url) {
+                            $value['url'] = $correct_url;
+                            $modified = true;
+                            $repair_count++;
+                            error_log("  🔧 Fixed URL [{$key}] depth={$depth} size={$expected_size}: {$current_url} → {$correct_url}");
+                        }
+                    }
+                }
+                
+                // ✅ Recurse with parent key context, settings, and depth
+                $value = $this->repair_urls_recursive($value, $modified, $repair_count, $key, $current_settings, $next_depth);
+            }
+        }
+        
+        return $data;
+    }
+
+    /**
+     * Detect expected size from Elementor context
+     */
+    private function detect_size_from_context($key, $parent_key, $value, $parent_settings = array(), $depth = 0) {
+        // ✅ If size is explicitly defined and is one of OUR custom sizes, use it
+        if (isset($value['size']) && !empty($value['size'])) {
+            $custom_sizes = array('hero', 'carousel-photo', 'standard-page-photo', 
+                                  'teaser-photo', 'page-background', 'small-carousel-cards');
+            
+            if (in_array($value['size'], $custom_sizes)) {
+                return $value['size'];  // ✅ Our custom size
+            }
+            // Otherwise: WordPress default size (thumbnail, medium, large, full) → ignore, use fallback
+        }
+        
+        // ✅ Hero detection: top-level container (depth <= 1) with min_height >= 300px
+        if ($key === 'background_image' && $depth <= 1 && isset($parent_settings['min_height']['size'])) {
+            $min_height = intval($parent_settings['min_height']['size']);
+            if ($min_height >= 300) {
+                return 'hero'; // Hero section (top-level only)
+            }
+        }
+        
+        // ✅ Detect from parent key or current key
+        $context_key = strtolower($parent_key ?: $key);
+        
+        if (strpos($context_key, 'carousel') !== false) {
+            return 'carousel-photo';
+        }
+        if (strpos($context_key, 'gallery') !== false) {
+            return 'carousel-photo';
+        }
+        if (strpos($context_key, 'background') !== false && strpos($context_key, 'hero') !== false) {
+            return 'hero';
+        }
+        if (strpos($context_key, 'image') !== false) {
+            return 'standard-page-photo';
+        }
+        
+        // ✅ Default for background_image without clear context
+        if ($key === 'background_image') {
+            return 'standard-page-photo'; // Safe default for nested containers/columns
+        }
+        
+        return null;
+    }
+
+    /**
+     * Get correct thumbnail URL with context
+     */
+    private function get_correct_thumbnail_url_with_context($image_id, $current_url, $expected_size) {
+        $file_path = get_attached_file($image_id);
+        if (!$file_path || !file_exists($file_path)) {
+            return null;
+        }
+        
+        $metadata = wp_get_attachment_metadata($image_id);
+        if (!$metadata) {
+            return null;
+        }
+        
+        $upload_dir = wp_upload_dir();
+        $base_dir = dirname($file_path);
+        $base_url = str_replace($upload_dir['basedir'], $upload_dir['baseurl'], $base_dir);
+        $base_filename = basename($file_path, '.' . pathinfo($file_path, PATHINFO_EXTENSION));
+        $ext = pathinfo($file_path, PATHINFO_EXTENSION);
+        
+        // ✅ If expected size is known, try to find that thumbnail
+        if ($expected_size && isset($metadata['sizes'][$expected_size])) {
+            $correct_filename = $metadata['sizes'][$expected_size]['file'];
+            $correct_path = $base_dir . '/' . $correct_filename;
+            
+            if (file_exists($correct_path)) {
+                return $base_url . '/' . $correct_filename;
+            }
+        }
+        
+        // ✅ Try to match dimensions in URL (e.g., IMG_2510-1920x1080.jpeg)
+        preg_match('/-(\d+)x(\d+)\.(jpg|jpeg|png|gif|webp)$/i', $current_url, $matches);
+        
+        if ($matches) {
+            $width = $matches[1];
+            $height = $matches[2];
+            
+            // ✅ Check metadata for matching dimensions
+            if (isset($metadata['sizes']) && is_array($metadata['sizes'])) {
+                foreach ($metadata['sizes'] as $size_name => $size_data) {
+                    if ($size_data['width'] == $width && $size_data['height'] == $height) {
+                        return $base_url . '/' . $size_data['file'];
+                    }
+                }
+            }
+            
+            // ✅ Check filesystem
+            $expected_filename = $base_filename . '-' . $width . 'x' . $height . '.' . $ext;
+            $expected_path = $base_dir . '/' . $expected_filename;
+            
+            if (file_exists($expected_path)) {
+                return $base_url . '/' . $expected_filename;
+            }
+        }
+        
+        // ✅ Handle URLs without dimensions (e.g., IMG_2510-scaled.jpeg)
+        // This happens when carousel/gallery URLs were corrupted
+        $current_filename = basename(parse_url($current_url, PHP_URL_PATH));
+        
+        // If URL is just the main file (no dimensions), try to find correct thumbnail on disk
+        if ($current_filename === basename($file_path)) {
+            // If we know expected size, use it
+            if ($expected_size && isset($metadata['sizes'][$expected_size])) {
+                return $base_url . '/' . $metadata['sizes'][$expected_size]['file'];
+            }
+            
+            // Otherwise search for first available thumbnail
+            $pattern = $base_dir . '/' . $base_filename . '-*x*.' . $ext;
+            $thumbnails = glob($pattern);
+            
+            if (!empty($thumbnails)) {
+                error_log("  ⚠️ URL has no dimensions, using first available thumbnail");
+                return $base_url . '/' . basename($thumbnails[0]);
+            }
+        }
+        
+        // ✅ Check if filename differs from actual file (wrong path/name)
+        $correct_filename = basename($file_path);
+        if ($current_filename !== $correct_filename) {
+            return $base_url . '/' . $correct_filename;
+        }
+        
+        // ✅ URL is already correct
+        return null;
+    }
+    
+    /**
+     * ✅ DEBUG: Export Elementor JSON for debugging
+     */
+    public function export_elementor_json() {
+        check_ajax_referer('page_images_manager', 'nonce');
+        
+        $page_id = isset($_POST['page_id']) ? intval($_POST['page_id']) : 0;
+        
+        if (!$page_id) {
+            wp_send_json_error('Invalid page ID');
+        }
+        
+        $page = get_post($page_id);
+        if (!$page) {
+            wp_send_json_error('Page not found');
+        }
+        
+        $elementor_data = get_post_meta($page_id, '_elementor_data', true);
+        
+        if (empty($elementor_data)) {
+            wp_send_json_error('No Elementor data found for this page');
+        }
+        
+        $data = json_decode($elementor_data, true);
+        
+        $filename = 'elementor-page-' . $page_id . '-' . sanitize_title($page->post_title) . '.json';
+        
+        wp_send_json_success(array(
+            'json' => json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+            'filename' => $filename,
+            'page_title' => $page->post_title,
+            'page_id' => $page_id
+        ));
     }
 }

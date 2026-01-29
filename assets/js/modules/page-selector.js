@@ -16,6 +16,42 @@ window.PIM_PageSelector = (function($) {
         $('#page-selector').on('change', function() {
             const pageId = $(this).val();
             $('#load-images-btn').prop('disabled', !pageId);
+            $('#export-elementor-json-btn').prop('disabled', !pageId);
+        });
+        
+        // Export Elementor JSON button
+        $('#export-elementor-json-btn').on('click', function() {
+            const pageId = $('#page-selector').val();
+            
+            if (!pageId) {
+                PIM_Toast.warning('Please select a page');
+                return;
+            }
+            
+            const btn = $(this);
+            btn.prop('disabled', true);
+            
+            PIM_Core.ajax('export_elementor_json', { page_id: pageId },
+                function(data) {
+                    // Create download link
+                    const blob = new Blob([data.json], { type: 'application/json' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = data.filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    
+                    PIM_Toast.success('✅ Elementor JSON exported!');
+                    btn.prop('disabled', false);
+                },
+                function(error) {
+                    PIM_Toast.error('❌ Export failed: ' + error);
+                    btn.prop('disabled', false);
+                }
+            );
         });
         
         // Load images button
@@ -45,7 +81,7 @@ window.PIM_PageSelector = (function($) {
                 url: pimData.ajaxurl,
                 type: 'POST',
                 data: {
-                    action: 'get_page_images',
+                    action: 'load_page_images_from_saved_data',
                     page_id: pageId,
                     nonce: pimData.nonce
                 },

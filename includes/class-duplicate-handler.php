@@ -116,6 +116,54 @@ class PIM_Duplicate_Handler {
         }
         
         error_log("📊 Result: {$total_duplicates} attachment(s) on current page with duplicates");
+        
+        // ✅ CHECK FOR MISSING IDs (missing in database) that match existing images
+        error_log("\n🔍 === CHECKING MISSING IDs FOR DUPLICATES ===");
+        if (!empty($missing_images)) {
+            error_log("📋 Processing " . count($missing_images) . " missing images");
+            
+            foreach ($missing_images as $missing_id => $missing_data) {
+                $missing_url = is_array($missing_data) ? ($missing_data['url'] ?? '') : '';
+                
+                if (empty($missing_url)) {
+                    continue;
+                }
+                
+                // Extract filename from URL
+                $missing_filename = basename(parse_url($missing_url, PHP_URL_PATH));
+                $missing_basename = $this->get_base_filename($missing_filename);
+                
+                error_log("  🔎 Missing ID #{$missing_id}: basename={$missing_basename}");
+                
+                // Find matching valid image by basename
+                foreach ($valid_images as $valid_id) {
+                    $valid_file = get_attached_file($valid_id);
+                    if (!$valid_file) continue;
+                    
+                    $valid_basename = $this->get_base_filename(basename($valid_file));
+                    
+                    if ($valid_basename === $missing_basename) {
+                        // Found match!
+                        if (!isset($duplicates[$valid_id])) {
+                            $duplicates[$valid_id] = array();
+                        }
+                        
+                        $duplicates[$valid_id][] = array(
+                            'missing_id' => $missing_id,
+                            'missing_url' => $missing_url,
+                            'source' => 'missing_in_database'
+                        );
+                        
+                        error_log("  ✅ FOUND DUPLICATE: Missing ID #{$missing_id} matches existing #{$valid_id}");
+                        $total_duplicates++;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        error_log("🔍 === END MISSING ID CHECK ===");
+        error_log("📊 Final result: {$total_duplicates} total duplicates found\n");
         error_log("🔍 === DUPLICATE DETECTION END ===\n");
         
         return $duplicates;

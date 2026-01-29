@@ -207,7 +207,7 @@ class PIM_Image_Renderer {
         }
         
         // Orphan Files section
-        if (!empty($orphan_files)) {
+        if (!empty($orphaned_files)) {
             $current_section++;
             $is_first = ($current_section === 1);
             $is_last = ($current_section === $section_count);
@@ -217,7 +217,7 @@ class PIM_Image_Renderer {
             
                 echo '<h3 class="pim-section-toggle" data-section="orphan-files" style="color: #999;">';
                 echo '<span class="dashicons dashicons-arrow-down-alt2"></span>';
-                echo '🗑️ Orphan Files (' . count($orphan_files) . ')';
+                echo '🗑️ Orphan Files (' . count($orphaned_files) . ')';
                 echo '</h3>';
                 
                 echo '<div class="pim-section-actions">';
@@ -235,13 +235,7 @@ class PIM_Image_Renderer {
             
             echo '<div class="pim-section-content" id="orphan-files-content">';
             foreach ($orphaned_files as $orphan) {
-                $orphan_old_format = array(
-                    'file' => basename($orphan['file_url']),
-                    'path' => $orphan['file_url'],
-                    'size' => 0,
-                    'url' => ''
-                );
-                $this->render_orphan_file_row($orphan_old_format);
+                $this->render_orphan_file_row($orphan);
             }
             echo '</div>';
             echo '</div>';
@@ -317,6 +311,15 @@ class PIM_Image_Renderer {
         // Actions
         echo '<div class="pim-image-actions">';
         
+        // ✅ DEBUG: Log what duplicates we received
+        error_log("🎨 RENDERER: Image #{$image_id} - Checking for duplicates");
+        error_log("   Duplicates array keys: " . print_r(array_keys($duplicates), true));
+        if (isset($duplicates[$image_id])) {
+            error_log("   ✅ Image #{$image_id} HAS duplicates: " . print_r($duplicates[$image_id], true));
+        } else {
+            error_log("   ❌ Image #{$image_id} has NO duplicates in array");
+        }
+        
         // Link & Generate for duplicates
         if (isset($duplicates[$image_id])) {
             $duplicate_ids = array_column($duplicates[$image_id], 'missing_id');
@@ -324,6 +327,20 @@ class PIM_Image_Renderer {
             echo 'data-primary-id="' . $image_id . '" ';
             echo 'data-duplicate-ids=\'' . json_encode($duplicate_ids) . '\'>';
             echo '🔗 Link & Generate (' . count($duplicate_ids) . ')';
+            echo '</button>';
+        }
+        
+        // ✅ Delete unused occurrences button
+        // Shows if image has more source entries than unique sources
+        $total_sources = count($sources);
+        $unique_count = count($sources_unique);
+        $unused_count = $total_sources - $unique_count;
+        
+        if ($unused_count > 0) {
+            echo '<button type="button" class="button button-link-delete delete-unused-btn" ';
+            echo 'data-image-id="' . $image_id . '" ';
+            echo 'style="border-color: #d63638; color: #d63638;">';
+            echo '🗑️ Delete unused occurrences (' . $unused_count . ')';
             echo '</button>';
         }
         
@@ -537,9 +554,9 @@ class PIM_Image_Renderer {
      * ✅ Render orphan file row
      */
     private function render_orphan_file_row($orphan) {
-        $filename = $orphan['file'];
-        $file_path = $orphan['path'];
-        $file_size = size_format($orphan['size'], 2);
+        $filename = basename($orphan['file_url']);
+        $file_path = $orphan['file_url'];
+        $file_size = size_format($orphan['file_size'] ?? 0, 2);
         
         echo '<div style="border: 1px solid #ddd; border-left: 4px solid #999; margin: 10px 0; background: #f9f9f9;">';
         echo '<table style="width: 100%; border-collapse: collapse;">';

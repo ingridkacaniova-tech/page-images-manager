@@ -23,7 +23,7 @@ class PIM_Ajax_Handler_Images {
      * Register AJAX hooks
      */
     public function register_hooks() {
-        add_action('wp_ajax_get_page_images', array($this, 'get_page_images'));
+        add_action('wp_ajax_load_page_images_from_saved_data', array($this, 'load_page_images_from_saved_data'));
         add_action('wp_ajax_get_single_image_row', array($this, 'get_single_image_row'));
         add_action('wp_ajax_regenerate_page_images', array($this, 'regenerate_page_images'));
         add_action('wp_ajax_delete_all_thumbnails', array($this, 'delete_all_thumbnails'));
@@ -33,11 +33,11 @@ class PIM_Ajax_Handler_Images {
     }
 
     /**
-     * Get page images
+     * Load page images from saved data
      */
-    public function get_page_images() {
+    public function load_page_images_from_saved_data() {
         // ✅ SESSION START
-        PIM_Debug_Logger::log_session_start('get_page_images');
+        PIM_Debug_Logger::log_session_start('load_page_images_from_saved_data');
 
         // ✅ BACKTRACE - kto nás volá?
         $bt = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 10);
@@ -59,7 +59,7 @@ class PIM_Ajax_Handler_Images {
             wp_send_json_error(__('Invalid page ID', 'page-images-manager'));
         }
 
-        $data = $this->extractor->extract_all_images($page_id);
+        $data = $this->extractor->load_images_from_saved_data($page_id);
 
         if (isset($data['error'])) {
             wp_send_json_error(array(
@@ -74,14 +74,25 @@ class PIM_Ajax_Handler_Images {
 
         $html = $this->renderer->generate_html($data);
 
+        // ✅ Calculate count for THIS PAGE ONLY (not global scan count)
+        $page_count = 0;
+        if (isset($data['page_usage_data'][$page_id])) {
+            $page_data = $data['page_usage_data'][$page_id];
+            $page_count = count($page_data['existing_images'] ?? []) 
+                        + count($page_data['missing_in_files'] ?? []) 
+                        + count($page_data['missing_in_database'] ?? []);
+        }
+        
+        error_log("📊 AJAX Response: Page #{$page_id} has {$page_count} images");
+
         wp_send_json_success(array(
             'html' => $html,
-            'count' => $data['count'],
-            'debug_data' => array(
-                'debug_info' => $data['debug_info']
-            )
-        ));
-    }
+            'count' => $page_count,
+            'orphaned_files' => $data['orphaned_files'] ?? array(),
+            'duplicates' => $data['duplicates'] ?? array(),
+            'scan_summary' => $data['scan_summary'] ?? array()
+             ));
+        }
 
     /**
      * ✅ NEW: Get single image row (for efficient updates after actions)
@@ -166,7 +177,21 @@ class PIM_Ajax_Handler_Images {
         $image_sources = array($image_id => array('unknown'));
 
         // ✅ No duplicates needed for single row update
-        $duplicates = array();
+        // ✅ Detect duplicates using same logic as load_images_from_saved_data
+        // Load all images from current page to detect duplicates
+        $page_id = isset($_POST['page_id']) ? intval($_POST['page_id']) : 0;
+        
+        if (!$page_id) {
+            error_log("⚠️ No page_id provided for duplicate detection");
+            $duplicates = array();
+        } else {
+            // Load page data structure (without full extraction)
+            $page_data_result = $this->extractor->load_images_from_saved_data($page_id);
+            $duplicates = $page_data_result['duplicates'] ?? array();
+            
+            error_log("✅ Loaded duplicates from saved data for page #{$page_id}");
+            error_log("   Duplicates for image #{$image_id}: " . print_r($duplicates[$image_id] ?? [], true));
+        }
 
         // ✅ Render single row HTML
         ob_start();
@@ -179,7 +204,7 @@ class PIM_Ajax_Handler_Images {
         );
         $html = ob_get_clean();
 
-        error_log("✅ Row HTML generated (no full extraction)");
+        error_log("✅ Row HTML generated with duplicates");
 
         wp_send_json_success(array(
             'html' => $html,

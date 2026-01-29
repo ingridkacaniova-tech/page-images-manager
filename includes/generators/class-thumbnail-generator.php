@@ -368,13 +368,24 @@ class PIM_Thumbnail_Generator {
     private function get_thumbnail_urls($image_id, $source_mappings) {
         $urls = array();
         $metadata = wp_get_attachment_metadata($image_id);
-        $base_url = dirname(wp_get_attachment_url($image_id));
+        
+        // ✅ FIX: Use get_attached_file() to preserve -scaled suffix
+        $file_path = get_attached_file($image_id);
+        if (!$file_path) {
+            error_log("❌ get_thumbnail_urls: No file path for image #{$image_id}");
+            return $urls;
+        }
+        
+        $upload_dir = wp_upload_dir();
+        $base_dir = dirname($file_path);
+        $base_url = str_replace($upload_dir['basedir'], $upload_dir['baseurl'], $base_dir);
 
         foreach ($source_mappings as $source => $size_name) {
             if (isset($metadata['sizes'][$size_name]['file'])) {
                 $urls[$source] = $base_url . '/' . $metadata['sizes'][$size_name]['file'];
             } else {
-                $urls[$source] = wp_get_attachment_url($image_id);
+                // ✅ Fallback: use main file (preserves -scaled)
+                $urls[$source] = $base_url . '/' . basename($file_path);
             }
         }
 
