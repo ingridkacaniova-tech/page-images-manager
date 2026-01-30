@@ -10,6 +10,8 @@ if (!defined('ABSPATH')) {
 }
 
 class PIM_Image_Extractor {
+    // Global scan data post_id: "scan" in Nokia T9 = 7777222266
+    const GLOBAL_SCAN_POST_ID = 7777222266;
     private $image_details = array();  // ← NEW: Store detailed info
 
     /**
@@ -45,13 +47,13 @@ class PIM_Image_Extractor {
         error_log("Page ID: {$page_id}");
         
         // Check image #10152 specifically
-        $usage = get_post_meta(10152, '_pim_page_usage', true);
-        if ($usage) {
-            error_log("⚠️ Image #10152 has _pim_page_usage:");
-            error_log(print_r($usage, true));
-        } else {
-            error_log("✅ Image #10152 has NO _pim_page_usage (normal extraction will run)");
-        }
+        // $usage = get_post_meta(10152, '_pim_page_usage', true);
+        // if ($usage) {
+        //     error_log("⚠️ Image #10152 has _pim_page_usage:");
+        //     error_log(print_r($usage, true));
+        // } else {
+        //     error_log("✅ Image #10152 has NO _pim_page_usage (normal extraction will run)");
+        // }
         error_log("🔍 === END DIAGNOSTIC ===\n");
         $page = get_post($page_id);
         if (!$page) {
@@ -127,9 +129,6 @@ class PIM_Image_Extractor {
         $duplicate_handler = new PIM_Duplicate_Handler();
         $duplicates = $duplicate_handler->find_duplicates($valid_images, $missing_image_ids);
         
-        // ✅ Find orphan files (files on disk, not in DB, not in Elementor)
-        $orphan_files = $this->find_orphan_files($page_id, $valid_images, $missing_image_ids);
-        
         // ✅ Add supplemental sources (RECOVERED - FILL IN)
         foreach ($valid_images as $image_id) {
             $supplemental = get_post_meta($image_id, '_pim_supplemental_sources', true);
@@ -155,7 +154,12 @@ class PIM_Image_Extractor {
         }
 
         // ✅ Find orphan files (files on disk, not in DB, not in Elementor)
-        $orphan_files = $this->find_orphan_files($page_id, $valid_images, $missing_image_ids);
+        // ✅ NEW - load from global scan data (already collected during "Collect Images")
+        $scan_data = get_post_meta(self::GLOBAL_SCAN_POST_ID, '_pim_scan_data', true);
+        $orphan_files = isset($scan_data['orphaned_files']) && is_array($scan_data['orphaned_files']) 
+            ? $scan_data['orphaned_files'] 
+            : array();
+        error_log("📋 Loaded " . count($orphan_files) . " orphaned files from global scan data");
         
         error_log('PIM DEBUG: Before return, image_details = ' . print_r($this->image_details, true));
         error_log('PIM DEBUG: valid_images = ' . print_r($valid_images, true));
@@ -217,89 +221,67 @@ class PIM_Image_Extractor {
             
             $page_data = $page_usage[$page_id_int];
             
-            if (isset($page_data['existing_images']) || isset($page_data['missing_in_files']) || isset($page_data['missing_in_database'])) {
-                error_log("  Image #" . $image_id . ": Found NEW structure");
-                
-                $image_ids[] = $image_id;
-                
-                if (!isset($image_sources[$image_id])) {
-                    $image_sources[$image_id] = array();
-                }
-                
-                if (!isset($this->image_details[$image_id])) {
-                    $this->image_details[$image_id] = array();
-                }
-                
-                if (isset($page_data['existing_images'])) {
-                    foreach ($page_data['existing_images'] as $img) {
-                        $source = $img['source'] ?? '';
-                        if (!empty($source) && !in_array($source, $image_sources[$image_id])) {
-                            $image_sources[$image_id][] = $source;
-                        }
-                        
-                        $this->image_details[$image_id][] = array(
-                            'id' => $image_id,
-                            'size_name' => $img['size_name'] ?? '',
-                            'elementor_id' => $img['elementor_id'] ?? '',
-                            'source' => $img['source'] ?? '',
-                            'file_url' => $img['file_url'] ?? ''
-                        );
-                    }
-                }
-                
-                if (isset($page_data['missing_in_files'])) {
-                    foreach ($page_data['missing_in_files'] as $img) {
-                        $source = $img['source'] ?? '';
-                        if (!empty($source) && !in_array($source, $image_sources[$image_id])) {
-                            $image_sources[$image_id][] = $source;
-                        }
-                        
-                        $this->image_details[$image_id][] = array(
-                            'id' => $image_id,
-                            'size_name' => $img['size_name'] ?? '',
-                            'elementor_id' => $img['elementor_id'] ?? '',
-                            'source' => $img['source'] ?? '',
-                            'file_url' => $img['file_url'] ?? ''
-                        );
-                    }
-                }
-                
-                if (isset($page_data['missing_in_database'])) {
-                    foreach ($page_data['missing_in_database'] as $img) {
-                        $missing_images[] = array(
-                            'id' => $img['id'] ?? 0,
-                            'url' => $img['file_url'] ?? '',
-                            'source' => $img['source'] ?? '',
-                            'size_name' => $img['size_name'] ?? '',
-                            'elementor_id' => $img['elementor_id'] ?? ''
-                        );
-                    }
-                }
-                
-                error_log("    Sources: " . implode(', ', $image_sources[$image_id]));
-                $count++;
-                
-            } else {
-                error_log("  Image #" . $image_id . ": Found OLD flat structure");
-                
-                $image_ids[] = $image_id;
-                
-                if (!isset($image_sources[$image_id])) {
-                    $image_sources[$image_id] = array();
-                }
-                
-                foreach ($page_data as $use) {
-                    if (is_array($use) && isset($use['source'])) {
-                        $source = $use['source'];
-                        if (!in_array($source, $image_sources[$image_id])) {
-                            $image_sources[$image_id][] = $source;
-                        }
-                    }
-                }
-                
-                error_log("    Sources: " . implode(', ', $image_sources[$image_id]));
-                $count++;
+            $image_ids[] = $image_id;
+            
+            if (!isset($image_sources[$image_id])) {
+                $image_sources[$image_id] = array();
             }
+            
+            if (!isset($this->image_details[$image_id])) {
+                $this->image_details[$image_id] = array();
+            }
+            
+            // Process existing_images
+            if (isset($page_data['existing_images'])) {
+                foreach ($page_data['existing_images'] as $img) {
+                    $source = $img['source'] ?? '';
+                    if (!empty($source) && !in_array($source, $image_sources[$image_id])) {
+                        $image_sources[$image_id][] = $source;
+                    }
+                    
+                    $this->image_details[$image_id][] = array(
+                        'id' => $image_id,
+                        'size_name' => $img['size_name'] ?? '',
+                        'elementor_id' => $img['elementor_id'] ?? '',
+                        'source' => $img['source'] ?? '',
+                        'file_url' => $img['file_url'] ?? ''
+                    );
+                }
+            }
+            
+            // Process missing_in_files
+            if (isset($page_data['missing_in_files'])) {
+                foreach ($page_data['missing_in_files'] as $img) {
+                    $source = $img['source'] ?? '';
+                    if (!empty($source) && !in_array($source, $image_sources[$image_id])) {
+                        $image_sources[$image_id][] = $source;
+                    }
+                    
+                    $this->image_details[$image_id][] = array(
+                        'id' => $image_id,
+                        'size_name' => $img['size_name'] ?? '',
+                        'elementor_id' => $img['elementor_id'] ?? '',
+                        'source' => $img['source'] ?? '',
+                        'file_url' => $img['file_url'] ?? ''
+                    );
+                }
+            }
+            
+            // Process missing_in_database
+            if (isset($page_data['missing_in_database'])) {
+                foreach ($page_data['missing_in_database'] as $img) {
+                    $missing_images[] = array(
+                        'id' => $img['id'] ?? 0,
+                        'url' => $img['file_url'] ?? '',
+                        'source' => $img['source'] ?? '',
+                        'size_name' => $img['size_name'] ?? '',
+                        'elementor_id' => $img['elementor_id'] ?? ''
+                    );
+                }
+            }
+            
+            error_log("  Image #" . $image_id . ": " . count($this->image_details[$image_id]) . " uses");
+            $count++;
         }
         
         error_log("Total images for page #" . $page_id . ": " . $count);

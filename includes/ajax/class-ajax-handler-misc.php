@@ -1354,9 +1354,15 @@ class PIM_Ajax_Handler_Misc {
             $page_usage_data = $data['page_usage_data'][$page->ID] ?? array();
             
             $all_scan_data[$page->ID] = $data;
+
+            error_log("📊 Som v collect_base_images_data_from_all_pages " . count($data['orphaned_files']) . " orphaned file");
             
             if (!empty($data['orphaned_files'])) {
+                error_log("📊 Som v collect_base_images_data_from_all_pages v if, takze orphaned_files NIE SU empty");
                 $global_orphaned_files = array_merge($global_orphaned_files, $data['orphaned_files']);
+            }
+            else{
+                error_log("📊 Som v collect_base_images_data_from_all_pages v if, takze orphaned_files SU empty");
             }
             
             if (!empty($data['duplicates'])) {
@@ -1419,11 +1425,18 @@ class PIM_Ajax_Handler_Misc {
             );
         }
         
-        update_post_meta(0, '_pim_scan_data', array(
+        error_log("📊 Som v collect_base_images_data_from_all_pages pri update_post_meta, ma ist ukladat data duplicates " . count($data['duplicates']));
+        error_log("📊 Som v collect_base_images_data_from_all_pages pri update_post_meta, ma ist ukladat global data duplicates " . count($global_duplicates));
+
+        error_log("📊 Som v collect_base_images_data_from_all_pages pri update_post_meta, ma ist ukladat data Orphaned files " . count($data['orphaned_files']));
+        error_log("📊 Som v collect_base_images_data_from_all_pages pri update_post_meta, ma ist ukladat global Orphaned files " . count($global_orphaned_files));
+
+
+        update_post_meta(PIM_Image_Extractor::GLOBAL_SCAN_POST_ID, '_pim_scan_data', array(
             'orphaned_files' => $global_orphaned_files,
             'duplicates' => $global_duplicates
         ));
-        error_log("💾 Saved global scan data (orphaned_files + duplicates) to wp_postmeta(0)");
+        error_log("💾 Saved global scan data (global_orphaned_files + global_duplicates) to wp_postmeta(0)");
         
         $duration = round((microtime(true) - $start_time), 2);
         
@@ -1453,6 +1466,29 @@ class PIM_Ajax_Handler_Misc {
         error_log("✅ Saved scan info to wp_options");
         error_log("🔄🔄🔄 === COLLECT BASE IMAGES DATA FROM ALL PAGES END === 🔄🔄🔄\n");
         
+global $wpdb;
+
+// Check _pim_scan_data
+$scan_data_check = $wpdb->get_row("SELECT * FROM {$wpdb->postmeta} WHERE meta_key = '_pim_scan_data'");
+error_log("🔍 CHECK _pim_scan_data: " . ($scan_data_check ? "EXISTS" : "NOT FOUND"));
+
+// Check _pim_page_usage (all records)
+$page_usage_check = $wpdb->get_results("SELECT post_id, meta_key FROM {$wpdb->postmeta} WHERE meta_key = '_pim_page_usage' LIMIT 5");
+error_log("🔍 CHECK _pim_page_usage: " . count($page_usage_check) . " records found");
+
+// Check if orphaned files might be in page_usage somehow
+if ($page_usage_check) {
+    foreach ($page_usage_check as $row) {
+        $data = maybe_unserialize(get_post_meta($row->post_id, '_pim_page_usage', true));
+        if (isset($data['orphaned_files'])) {
+            error_log("✅ FOUND orphaned_files in _pim_page_usage for post_id=" . $row->post_id);
+            error_log("Count: " . count($data['orphaned_files']));
+            break;
+        }
+    }
+}
+
+
         wp_send_json_success(array(
             'message' => sprintf(
                 "Scanned %d pages, processed %d images (%d uses)",
@@ -1514,16 +1550,25 @@ class PIM_Ajax_Handler_Misc {
             if (!is_array($existing_usage)) {
                 $existing_usage = array();
             }
-            
-            if (!isset($existing_usage[$page_id])) {
-                $existing_usage[$page_id] = array(
-                    'existing_images' => array(),
-                    'missing_in_files' => array(),
-                    'missing_in_database' => array()
-                );
+
+            // Zabezpeč čistú NEW štruktúru pre túto page
+            if (!isset($existing_usage[$page_id]) || !is_array($existing_usage[$page_id])) {
+                $existing_usage[$page_id] = array();
             }
-            
-            $existing_usage[$page_id][$category] = $uses;
+
+            // Zabezpeč všetky tri kategórie existujú (nevymaže staré numerické)
+            if (!isset($existing_usage[$page_id]['existing_images'])) {
+                $existing_usage[$page_id]['existing_images'] = array();
+            }
+            if (!isset($existing_usage[$page_id]['missing_in_files'])) {
+                $existing_usage[$page_id]['missing_in_files'] = array();
+            }
+            if (!isset($existing_usage[$page_id]['missing_in_database'])) {
+                $existing_usage[$page_id]['missing_in_database'] = array();
+            }
+
+            // Ulož do správnej kategórie
+            $existing_usage[$page_id][$category] = $uses;            
             
             update_post_meta($image_id, '_pim_page_usage', $existing_usage);
             
@@ -1685,10 +1730,53 @@ class PIM_Ajax_Handler_Misc {
             }
         }
         
+        // ✅ CLEANUP: Remove old numeric structure from _pim_page_usage
+        error_log("\n🧹 === CLEANING UP OLD DATA STRUCTURE ===");
+        
+        $cleanup_count = 0;
+        $results = $wpdb->get_results("
+            SELECT post_id, meta_value 
+            FROM {$wpdb->postmeta} 
+            WHERE meta_key = '_pim_page_usage'
+        ");
+        
+        foreach ($results as $row) {
+            $image_id = intval($row->post_id);
+            $page_usage = maybe_unserialize($row->meta_value);
+            
+            if (!is_array($page_usage)) {
+                continue;
+            }
+            
+            $modified = false;
+            
+            foreach ($page_usage as $page_id => &$page_data) {
+                if (!is_array($page_data)) {
+                    continue;
+                }
+                
+                // Remove numeric keys (old structure: "0", "1", "2"...)
+                foreach (array_keys($page_data) as $key) {
+                    if (is_numeric($key)) {
+                        unset($page_data[$key]);
+                        $modified = true;
+                    }
+                }
+            }
+            
+            if ($modified) {
+                update_post_meta($image_id, '_pim_page_usage', $page_usage);
+                $cleanup_count++;
+                error_log("  🧹 Image #{$image_id}: Cleaned old structure");
+            }
+        }
+        
+        error_log("🧹 === CLEANUP COMPLETE: {$cleanup_count} images cleaned ===\n");
+        
         error_log("🔧 === REPAIR COMPLETE: {$repaired_count} URLs repaired ===\n");
         
         wp_send_json_success(array(
-            'message' => "Repaired {$repaired_count} URL(s) across " . count($pages) . " pages"
+            'message' => "Repaired {$repaired_count} URL(s) across " . count($pages) . " pages and cleaned {$cleanup_count} old data structures"
         ));
     }
 

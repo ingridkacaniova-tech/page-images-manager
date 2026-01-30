@@ -27,13 +27,13 @@ if (!defined('ABSPATH')) {
                 🔄 Collect Images from All Pages & Save to Database
             </button>
             <button id="repair-elementor-btn" class="button button-secondary" style="background: #f0ad4e; border-color: #f0ad4e; color: white;">
-                🔧 Repair Elementor URLs
+                🔧 Repair Elementor URLs and Wrong Data
             </button>
             <button id="show-scan-info-btn" class="button button-secondary">
                 📊 Show Last Scan Info  
             </button>
             <button id="save-list-to-file-btn" class="button button-secondary">
-                💾 Save the List to File
+                💾 Save Collected data to File
             </button>
         </div>
         
