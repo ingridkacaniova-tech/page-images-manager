@@ -1,7 +1,7 @@
 <?php
-error_log("🟢 class-ajax-handler-misc.php LOADED (TODO 50/51)");
-
 if (!defined('ABSPATH')) exit;
+
+// ✅ Removed top-level log - now loaded lazily only when needed
 
 class PIM_Ajax_Handler_Misc {
     private $generator;
@@ -17,7 +17,7 @@ class PIM_Ajax_Handler_Misc {
     }
 
     /**
-     * Register AJAX hooks
+     * Register AJAX hooks 
      */
     public function register_hooks() {
         add_action('wp_ajax_create_attachment_from_url', array($this, 'create_attachment_from_url'));

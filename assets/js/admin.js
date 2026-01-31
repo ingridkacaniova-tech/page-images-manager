@@ -267,7 +267,7 @@
     // ============================================
     
     window.pimRefreshImages = function() {
-        PIMCore.refreshImages();
+        PIM_Core.refreshImages();
     };
     
     // ============================================
@@ -278,17 +278,17 @@
         console.log('🔧 Development mode active');
         
         window.PIMModules = {
-            Toast: PIMToast,
-            Core: PIMCore,
-            PageSelector: PIMPageSelector,
-            CollapsibleSections: PIMCollapsibleSections,
-            ThumbnailGeneration: PIMThumbnailGeneration,
-            ImageActions: PIMImageActions,
-            DuplicateHandling: PIMDuplicateHandling,
-            DuplicateDialog: PIMDuplicateDialog,
-            MissingImages: PIMMissingImages,
-            DebugLog: PIMDebugLog,
-            LockHandling: PIMLockHandling
+            Toast: PIM_Toast,
+            Core: PIM_Core,
+            PageSelector: PIM_PageSelector,
+            CollapsibleSections: PIM_CollapsibleSections,
+            ThumbnailGeneration: PIM_ThumbnailGeneration,
+            ImageActions: PIM_ImageActions,
+            DuplicateHandling: PIM_DuplicateHandling,
+            DuplicateDialog: PIM_DuplicateDialog,
+            MissingImages: PIM_MissingImages,
+            DebugLog: PIM_DebugLog,
+            LockHandling: PIM_LockHandling
         };
         
         console.log('💡 Modules available via window.PIMModules');
@@ -296,7 +296,7 @@
     }
     
     // ============================================
-    // ERROR HANDLING
+    // ERROR HANDLING 
     // ============================================
     
     window.addEventListener('error', function(event) {
