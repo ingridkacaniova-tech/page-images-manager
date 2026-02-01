@@ -2,7 +2,7 @@
 /**
  * Image Extractor Class
  * Handles extraction of images from various sources
- * NO HTML RENDERING - only data extraction
+ * NO HTML RENDERING - only data extraction 
  */
 
 if (!defined('ABSPATH')) {
@@ -125,41 +125,26 @@ class PIM_Image_Extractor {
             }
         }
         
-        // Find duplicates
-        $duplicate_handler = new PIM_Duplicate_Handler();
-        $duplicates = $duplicate_handler->find_duplicates($valid_images, $missing_image_ids);
+        // ✅ OPTIMIZED: Load ALL global scan data in ONE query (duplicates + orphaned_files)
+        $scan_data = get_post_meta(self::GLOBAL_SCAN_POST_ID, '_pim_scan_data', true);
         
-        // ✅ Add supplemental sources (RECOVERED - FILL IN)
-        foreach ($valid_images as $image_id) {
-            $supplemental = get_post_meta($image_id, '_pim_supplemental_sources', true);
-            
-            if (is_array($supplemental) && !empty($supplemental)) {
-                if (!isset($image_sources[$image_id])) {
-                    $image_sources[$image_id] = array();
-                }
-                
-                // Merge supplemental sources
-                $image_sources[$image_id] = array_merge(
-                    $image_sources[$image_id],
-                    $supplemental
-                );
-                
-                error_log("✅ Image #{$image_id}: Added supplemental sources: " . implode(', ', $supplemental));
-            }
-        }
-
+        $duplicates = isset($scan_data['duplicates']) && is_array($scan_data['duplicates']) 
+            ? $scan_data['duplicates'] 
+            : array();
+        
+        $orphan_files = isset($scan_data['orphaned_files']) && is_array($scan_data['orphaned_files']) 
+            ? $scan_data['orphaned_files'] 
+            : array();
+        
+        error_log("📋 Loaded from global scan data (1 query): " . count($duplicates) . " duplicates, " . count($orphan_files) . " orphaned files");
+        
+        // ✅ REMOVED: supplemental sources loading (will be fetched ON-DEMAND in UI)
+        // Supplemental sources are NOT needed for "Load Images" - only for detail modals
+        
         // Remove duplicates in sources
         foreach ($image_sources as $id => $sources) {
             $image_sources[$id] = array_unique($sources);
         }
-
-        // ✅ Find orphan files (files on disk, not in DB, not in Elementor)
-        // ✅ NEW - load from global scan data (already collected during "Collect Images")
-        $scan_data = get_post_meta(self::GLOBAL_SCAN_POST_ID, '_pim_scan_data', true);
-        $orphan_files = isset($scan_data['orphaned_files']) && is_array($scan_data['orphaned_files']) 
-            ? $scan_data['orphaned_files'] 
-            : array();
-        error_log("📋 Loaded " . count($orphan_files) . " orphaned files from global scan data");
         
         error_log('PIM DEBUG: Before return, image_details = ' . print_r($this->image_details, true));
         error_log('PIM DEBUG: valid_images = ' . print_r($valid_images, true));

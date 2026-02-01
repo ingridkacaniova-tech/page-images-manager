@@ -103,7 +103,7 @@
         scanAllPagesWithProgress(toastId, function(success) {
             if (success) {
                 PIM_Toast.closeProgress(toastId);
-                PIM_Toast.success('✅ Scan complete! Check "Last Scan Info" for details.');
+                PIM_Toast.success('Scan complete! Check "Last Scan Info" for details.');
                 loadScanInfo();
             } else {
                 PIM_Toast.closeProgress(toastId);
@@ -130,7 +130,7 @@
         PIM_Core.ajax('repair_elementor_urls', {}, 
             function(data) {
                 PIM_Toast.closeProgress(toastId);
-                PIM_Toast.success(`✅ ${data.message || 'Repair complete!'}`);
+                PIM_Toast.success(`${data.message || 'Repair complete!'}`);
                 btn.prop('disabled', false);
             },
             function(error) {
@@ -255,12 +255,12 @@
                 downloadFile(data.download_url, data.filename);
                 
                 // Show success toast
-                PIM_Toast.success(`✅ Cache data saved: ${data.filename}`);
+                PIM_Toast.success(`Cache data saved: ${data.filename}`);
                 
                 // Check if both exports are done
                 if (cacheExported && databaseExported) {
                     btn.prop('disabled', false);
-                    PIM_Toast.success('✅ Both files exported successfully!');
+                    PIM_Toast.success('Both files exported successfully!');
                 }
             },
             function(error) {
@@ -281,12 +281,12 @@
                 downloadFile(data.download_url, data.filename);
                 
                 // Show success toast
-                PIM_Toast.success(`✅ Database data saved: ${data.filename} (${data.total_images} images)`);
+                PIM_Toast.success(`Database data saved: ${data.filename} (${data.total_images} images)`);
                 
                 // Check if both exports are done
                 if (cacheExported && databaseExported) {
                     btn.prop('disabled', false);
-                    PIM_Toast.success('✅ Both files exported successfully!');
+                    PIM_Toast.success('Both files exported successfully!');
                 }
             },
             function(error) {
