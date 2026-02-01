@@ -50,6 +50,10 @@ class PIM_Ajax_Handler_Misc {
         
         // ✅ DEBUG: Export Elementor JSON
         add_action('wp_ajax_export_elementor_json', array($this, 'export_elementor_json'));
+        
+        // ✅ TODO 67: Export cache & database to JSON files
+        add_action('wp_ajax_export_cache_to_json', array($this, 'export_cache_to_json'));
+        add_action('wp_ajax_export_database_to_json', array($this, 'export_database_to_json'));
     }
 
     /**
@@ -1466,28 +1470,27 @@ class PIM_Ajax_Handler_Misc {
         error_log("✅ Saved scan info to wp_options");
         error_log("🔄🔄🔄 === COLLECT BASE IMAGES DATA FROM ALL PAGES END === 🔄🔄🔄\n");
         
-global $wpdb;
+        global $wpdb;
 
-// Check _pim_scan_data
-$scan_data_check = $wpdb->get_row("SELECT * FROM {$wpdb->postmeta} WHERE meta_key = '_pim_scan_data'");
-error_log("🔍 CHECK _pim_scan_data: " . ($scan_data_check ? "EXISTS" : "NOT FOUND"));
+        // Check _pim_scan_data
+        $scan_data_check = $wpdb->get_row("SELECT * FROM {$wpdb->postmeta} WHERE meta_key = '_pim_scan_data'");
+        error_log("🔍 CHECK _pim_scan_data: " . ($scan_data_check ? "EXISTS" : "NOT FOUND"));
 
-// Check _pim_page_usage (all records)
-$page_usage_check = $wpdb->get_results("SELECT post_id, meta_key FROM {$wpdb->postmeta} WHERE meta_key = '_pim_page_usage' LIMIT 5");
-error_log("🔍 CHECK _pim_page_usage: " . count($page_usage_check) . " records found");
+        // Check _pim_page_usage (all records)
+        $page_usage_check = $wpdb->get_results("SELECT post_id, meta_key FROM {$wpdb->postmeta} WHERE meta_key = '_pim_page_usage' LIMIT 5");
+        error_log("🔍 CHECK _pim_page_usage: " . count($page_usage_check) . " records found");
 
-// Check if orphaned files might be in page_usage somehow
-if ($page_usage_check) {
-    foreach ($page_usage_check as $row) {
-        $data = maybe_unserialize(get_post_meta($row->post_id, '_pim_page_usage', true));
-        if (isset($data['orphaned_files'])) {
-            error_log("✅ FOUND orphaned_files in _pim_page_usage for post_id=" . $row->post_id);
-            error_log("Count: " . count($data['orphaned_files']));
-            break;
+        // Check if orphaned files might be in page_usage somehow
+        if ($page_usage_check) {
+            foreach ($page_usage_check as $row) {
+                $data = maybe_unserialize(get_post_meta($row->post_id, '_pim_page_usage', true));
+                if (isset($data['orphaned_files'])) {
+                    error_log("✅ FOUND orphaned_files in _pim_page_usage for post_id=" . $row->post_id);
+                    error_log("Count: " . count($data['orphaned_files']));
+                    break;
+                }
+            }
         }
-    }
-}
-
 
         wp_send_json_success(array(
             'message' => sprintf(
@@ -1992,5 +1995,256 @@ if ($page_usage_check) {
             'page_title' => $page->post_title,
             'page_id' => $page_id
         ));
+    }
+    
+    /**
+     * ✅ TODO 67: Export CACHE data to JSON file
+     * Načíta dáta z _pim_page_usage + _pim_scan_data (to, čo sa uložilo počas "Collect Images")
+     */
+    public function export_cache_to_json() {
+        error_log("\n✅ === TODO 67: EXPORT CACHE TO JSON ===");
+        
+        check_ajax_referer('page_images_manager', 'nonce');
+        
+        global $wpdb;
+        
+        // 1️⃣ Načítaj PER-IMAGE data z _pim_page_usage
+        $results = $wpdb->get_results("
+            SELECT post_id, meta_value 
+            FROM {$wpdb->postmeta} 
+            WHERE meta_key = '_pim_page_usage'
+        ");
+        
+        error_log("✅ Found " . count($results) . " images with _pim_page_usage");
+        
+        // Rebuild page_usage_data structure
+        $page_usage_data = array();
+        
+        foreach ($results as $row) {
+            $image_id = intval($row->post_id);
+            $page_usage = maybe_unserialize($row->meta_value);
+            
+            if (!is_array($page_usage)) {
+                continue;
+            }
+            
+            // page_usage format:
+            // array(
+            //   3019 => array(
+            //     'existing_images' => [...],
+            //     'missing_in_files' => [...],
+            //     'missing_in_database' => [...]
+            //   )
+            // )
+            
+            foreach ($page_usage as $page_id => $categories) {
+                if (!isset($page_usage_data[$page_id])) {
+                    $page_usage_data[$page_id] = array(
+                        'existing_images' => array(),
+                        'missing_in_files' => array(),
+                        'missing_in_database' => array()
+                    );
+                }
+                
+                // Merge categories
+                foreach (array('existing_images', 'missing_in_files', 'missing_in_database') as $category) {
+                    if (isset($categories[$category]) && is_array($categories[$category])) {
+                        $page_usage_data[$page_id][$category] = array_merge(
+                            $page_usage_data[$page_id][$category],
+                            $categories[$category]
+                        );
+                    }
+                }
+            }
+        }
+        
+        error_log("✅ Reconstructed page_usage_data for " . count($page_usage_data) . " pages");
+        
+        // 2️⃣ Načítaj GLOBÁLNE data z _pim_scan_data
+        $scan_data = get_post_meta(PIM_Image_Extractor::GLOBAL_SCAN_POST_ID, '_pim_scan_data', true);
+        
+        $orphaned_files = isset($scan_data['orphaned_files']) && is_array($scan_data['orphaned_files']) 
+            ? $scan_data['orphaned_files'] 
+            : array();
+            
+        $duplicates = isset($scan_data['duplicates']) && is_array($scan_data['duplicates']) 
+            ? $scan_data['duplicates'] 
+            : array();
+        
+        error_log("✅ Loaded orphaned_files: " . count($orphaned_files));
+        error_log("✅ Loaded duplicates: " . count($duplicates));
+        
+        // 3️⃣ Načítaj štatistiky z wp_options
+        $scan_summary = get_option('pim_last_scan', array());
+        
+        // 4️⃣ Zostaň štruktúru ROVNAKÚ ako v pim-scan-data-TIMESTAMP.json
+        $final_structure = array(
+            'page_usage_data' => $page_usage_data,
+            'orphaned_files' => $orphaned_files,
+            'duplicates' => $duplicates,
+            'scan_summary' => $scan_summary
+        );
+        
+        // 5️⃣ Ulož do súboru
+        $upload_dir = wp_upload_dir();
+        $filename = 'collected-data-from-cache-' . date('Y-m-d-H-i-s') . '.json';
+        $file_path = $upload_dir['basedir'] . '/' . $filename;
+        
+        $json_data = json_encode($final_structure, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        
+        if (file_put_contents($file_path, $json_data)) {
+            error_log("✅ Cache data saved to: {$file_path}");
+            
+            wp_send_json_success(array(
+                'download_url' => $upload_dir['baseurl'] . '/' . $filename,
+                'filename' => $filename,
+                'total_pages' => count($page_usage_data),
+                'total_orphaned_files' => count($orphaned_files),
+                'total_duplicates' => count($duplicates)
+            ));
+        } else {
+            error_log("❌ Failed to save cache data to file");
+            wp_send_json_error('Failed to save file');
+        }
+    }
+    
+    /**
+     * ✅ TODO 67: Export DATABASE data to JSON file
+     * Robí PRIAME SELECTy z databázy (NEPOUŽÍVA WordPress cache funkcie)
+     * Účel: Overiť, či sú dáta naozaj uložené v DB (nie len v cache)
+     */
+    public function export_database_to_json() {
+        error_log("\n✅ === TODO 67: EXPORT DATABASE TO JSON (DIRECT SQL) ===");
+        
+        check_ajax_referer('page_images_manager', 'nonce');
+        
+        global $wpdb;
+        
+        $start_time = microtime(true);
+        
+        // 1️⃣ PRIAMY SELECT z wp_postmeta pre _pim_page_usage
+        error_log("📊 SELECT _pim_page_usage FROM wp_postmeta...");
+        
+        $results = $wpdb->get_results("
+            SELECT post_id, meta_value 
+            FROM {$wpdb->postmeta} 
+            WHERE meta_key = '_pim_page_usage'
+        ");
+        
+        error_log("✅ Found " . count($results) . " rows in database");
+        
+        // Rebuild page_usage_data structure (ROVNAKÁ logika ako v cache)
+        $page_usage_data = array();
+        
+        foreach ($results as $row) {
+            $image_id = intval($row->post_id);
+            $page_usage = maybe_unserialize($row->meta_value);
+            
+            if (!is_array($page_usage)) {
+                continue;
+            }
+            
+            foreach ($page_usage as $page_id => $categories) {
+                if (!isset($page_usage_data[$page_id])) {
+                    $page_usage_data[$page_id] = array(
+                        'existing_images' => array(),
+                        'missing_in_files' => array(),
+                        'missing_in_database' => array()
+                    );
+                }
+                
+                // Merge categories
+                foreach (array('existing_images', 'missing_in_files', 'missing_in_database') as $category) {
+                    if (isset($categories[$category]) && is_array($categories[$category])) {
+                        $page_usage_data[$page_id][$category] = array_merge(
+                            $page_usage_data[$page_id][$category],
+                            $categories[$category]
+                        );
+                    }
+                }
+            }
+        }
+        
+        error_log("✅ Reconstructed page_usage_data for " . count($page_usage_data) . " pages");
+        
+        // 2️⃣ PRIAMY SELECT z wp_postmeta pre _pim_scan_data (post_id = 7777222266)
+        error_log("📊 SELECT _pim_scan_data FROM wp_postmeta WHERE post_id=" . PIM_Image_Extractor::GLOBAL_SCAN_POST_ID . "...");
+        
+        $scan_data_row = $wpdb->get_row($wpdb->prepare("
+            SELECT meta_value 
+            FROM {$wpdb->postmeta} 
+            WHERE meta_key = '_pim_scan_data' 
+            AND post_id = %d
+        ", PIM_Image_Extractor::GLOBAL_SCAN_POST_ID));
+        
+        if ($scan_data_row) {
+            $scan_data = maybe_unserialize($scan_data_row->meta_value);
+            error_log("✅ Found _pim_scan_data in database");
+        } else {
+            $scan_data = array();
+            error_log("⚠️ _pim_scan_data NOT FOUND in database!");
+        }
+        
+        $orphaned_files = isset($scan_data['orphaned_files']) && is_array($scan_data['orphaned_files']) 
+            ? $scan_data['orphaned_files'] 
+            : array();
+            
+        $duplicates = isset($scan_data['duplicates']) && is_array($scan_data['duplicates']) 
+            ? $scan_data['duplicates'] 
+            : array();
+        
+        error_log("✅ orphaned_files: " . count($orphaned_files));
+        error_log("✅ duplicates: " . count($duplicates));
+        
+        // 3️⃣ PRIAMY SELECT z wp_options pre pim_last_scan
+        error_log("📊 SELECT pim_last_scan FROM wp_options...");
+        
+        $scan_summary_row = $wpdb->get_row($wpdb->prepare("
+            SELECT option_value 
+            FROM {$wpdb->options} 
+            WHERE option_name = %s
+        ", 'pim_last_scan'));
+        
+        if ($scan_summary_row) {
+            $scan_summary = maybe_unserialize($scan_summary_row->option_value);
+            error_log("✅ Found pim_last_scan in database");
+        } else {
+            $scan_summary = array();
+            error_log("⚠️ pim_last_scan NOT FOUND in database!");
+        }
+        
+        $duration = round((microtime(true) - $start_time), 2);
+        
+        // 4️⃣ Zostaň štruktúru ROVNAKÚ ako v cache
+        $final_structure = array(
+            'page_usage_data' => $page_usage_data,
+            'orphaned_files' => $orphaned_files,
+            'duplicates' => $duplicates,
+            'scan_summary' => $scan_summary
+        );
+        
+        // 5️⃣ Ulož do súboru
+        $upload_dir = wp_upload_dir();
+        $filename = 'collected-data-from-database-' . date('Y-m-d-H-i-s') . '.json';
+        $file_path = $upload_dir['basedir'] . '/' . $filename;
+        
+        $json_data = json_encode($final_structure, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        
+        if (file_put_contents($file_path, $json_data)) {
+            error_log("✅ Database export saved to: {$file_path}");
+            error_log("⏱️ Export duration: {$duration}s");
+            
+            wp_send_json_success(array(
+                'download_url' => $upload_dir['baseurl'] . '/' . $filename,
+                'filename' => $filename,
+                'total_pages' => count($page_usage_data),
+                'total_orphaned_files' => count($orphaned_files),
+                'total_duplicates' => count($duplicates),
+                'duration' => $duration
+            ));
+        } else {
+            error_log("❌ Failed to save database export to file");
+            wp_send_json_error('Failed to save file');
+        }
     }
 }

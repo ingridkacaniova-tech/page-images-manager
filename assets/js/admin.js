@@ -234,11 +234,83 @@
         }
     });
 
-    // 💾 Save to File
+    // 💾 TODO 67: Save Cache & Database to Files
     $('#save-list-to-file-btn').click(function() {
-        PIM_Toast.info('CSV export - coming soon!');
-        // TODO: Implement CSV export
+        const btn = $(this);
+        btn.prop('disabled', true);
+        
+        PIM_DebugLog.log('TODO 67: Export button clicked');
+        
+        let cacheExported = false;
+        let databaseExported = false;
+        
+        // Export 1: Cache data
+        PIM_DebugLog.log('TODO 67: Calling export_cache_to_json...');
+        PIM_Core.ajax('export_cache_to_json', {},
+            function(data) {
+                PIM_DebugLog.log('TODO 67: Cache export success', data);
+                cacheExported = true;
+                
+                // Download cache file
+                downloadFile(data.download_url, data.filename);
+                
+                // Show success toast
+                PIM_Toast.success(`✅ Cache data saved: ${data.filename}`);
+                
+                // Check if both exports are done
+                if (cacheExported && databaseExported) {
+                    btn.prop('disabled', false);
+                    PIM_Toast.success('✅ Both files exported successfully!');
+                }
+            },
+            function(error) {
+                PIM_DebugLog.log('TODO 67: Cache export failed', error);
+                PIM_Toast.error(`❌ Cache export failed: ${error}`);
+                btn.prop('disabled', false);
+            }
+        );
+        
+        // Export 2: Database data
+        PIM_DebugLog.log('TODO 67: Calling export_database_to_json...');
+        PIM_Core.ajax('export_database_to_json', {},
+            function(data) {
+                PIM_DebugLog.log('TODO 67: Database export success', data);
+                databaseExported = true;
+                
+                // Download database file
+                downloadFile(data.download_url, data.filename);
+                
+                // Show success toast
+                PIM_Toast.success(`✅ Database data saved: ${data.filename} (${data.total_images} images)`);
+                
+                // Check if both exports are done
+                if (cacheExported && databaseExported) {
+                    btn.prop('disabled', false);
+                    PIM_Toast.success('✅ Both files exported successfully!');
+                }
+            },
+            function(error) {
+                PIM_DebugLog.log('TODO 67: Database export failed', error);
+                PIM_Toast.error(`❌ Database export failed: ${error}`);
+                btn.prop('disabled', false);
+            }
+        );
     });
+    
+    /**
+     * ✅ TODO 67: Helper function to download file
+     */
+    function downloadFile(url, filename) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        PIM_DebugLog.log('TODO 67: Download triggered', {url: url, filename: filename});
+    }
 
     // ============================================
     // LOAD SCAN INFO FROM DB (on page load)

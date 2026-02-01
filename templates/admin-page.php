@@ -33,7 +33,7 @@ if (!defined('ABSPATH')) {
                 📊 Show Last Scan Info  
             </button>
             <button id="save-list-to-file-btn" class="button button-secondary">
-                💾 Save Collected data to File
+                💾 Save Collected Data in Cache & Database to Files
             </button>
         </div>
         
