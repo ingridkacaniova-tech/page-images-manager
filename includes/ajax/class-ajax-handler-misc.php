@@ -1963,7 +1963,9 @@ class PIM_Ajax_Handler_Misc {
     }
     
     /**
-     * ✅ DEBUG: Export Elementor JSON for debugging
+     * ✅ DEBUG: Export RAW Elementor JSON from database
+     * ✅ ISSUE 70: Export RAW JSON without decode/encode to preserve original structure
+     * ✅ ISSUE 70: Save to uploads folder and return download URL 
      */
     public function export_elementor_json() {
         check_ajax_referer('page_images_manager', 'nonce');
@@ -1979,22 +1981,31 @@ class PIM_Ajax_Handler_Misc {
             wp_send_json_error('Page not found');
         }
         
+        // ✅ Get RAW JSON string from database (don't decode!)
         $elementor_data = get_post_meta($page_id, '_elementor_data', true);
         
         if (empty($elementor_data)) {
             wp_send_json_error('No Elementor data found for this page');
         }
         
-        $data = json_decode($elementor_data, true);
-        
+        // ✅ Save to uploads folder
+        $upload_dir = wp_upload_dir();
         $filename = 'elementor-page-' . $page_id . '-' . sanitize_title($page->post_title) . '.json';
+        $file_path = $upload_dir['basedir'] . '/' . $filename;
         
-        wp_send_json_success(array(
-            'json' => json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
-            'filename' => $filename,
-            'page_title' => $page->post_title,
-            'page_id' => $page_id
-        ));
+        if (file_put_contents($file_path, $elementor_data)) {
+            error_log("✅ RAW Elementor JSON saved to: {$file_path}");
+            
+            wp_send_json_success(array(
+                'download_url' => $upload_dir['baseurl'] . '/' . $filename,
+                'filename' => $filename,
+                'page_title' => $page->post_title,
+                'page_id' => $page_id
+            ));
+        } else {
+            error_log("❌ Failed to save Elementor JSON to file");
+            wp_send_json_error('Failed to save file');
+        }
     }
     
     /**

@@ -8,7 +8,7 @@
 window.PIM_PageSelector = (function($) {
     'use strict';
     
-    // ✅ Store debug data globally for Debug Log View
+    // ✅ Store debug data globally for Debug Log View 
     let currentDebugData = null;
     
     function init() {
@@ -20,6 +20,7 @@ window.PIM_PageSelector = (function($) {
         });
         
         // Export Elementor JSON button
+        // ✅ ISSUE 70: Save RAW JSON to uploads folder (no client-side download)
         $('#export-elementor-json-btn').on('click', function() {
             const pageId = $('#page-selector').val();
             
@@ -30,21 +31,12 @@ window.PIM_PageSelector = (function($) {
             
             const btn = $(this);
             btn.prop('disabled', true);
+            PIM_Toast.info('Exporting Elementor JSON...');
             
             PIM_Core.ajax('export_elementor_json', { page_id: pageId },
                 function(data) {
-                    // Create download link
-                    const blob = new Blob([data.json], { type: 'application/json' });
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = data.filename;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    window.URL.revokeObjectURL(url);
-                    
-                    PIM_Toast.success('✅ Elementor JSON exported!');
+                    // ✅ ISSUE 70: File is already saved by PHP - just show toast
+                    PIM_Toast.success('RAW Elementor JSON saved to Uploads folder: ' + data.filename);
                     btn.prop('disabled', false);
                 },
                 function(error) {
