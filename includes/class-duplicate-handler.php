@@ -103,8 +103,8 @@ class PIM_Duplicate_Handler {
                     
                     foreach ($duplicate_ids as $dup_id) {
                         $duplicates[$primary_id][] = array(
-                            'missing_id' => $dup_id,
-                            'missing_url' => wp_get_attachment_url($dup_id),
+                            'id' => $dup_id,
+                            'file_url' => wp_get_attachment_url($dup_id),
                             'source' => 'duplicate'
                         );
                     }
@@ -122,18 +122,18 @@ class PIM_Duplicate_Handler {
         if (!empty($missing_images)) {
             error_log("📋 Processing " . count($missing_images) . " missing images");
             
-            foreach ($missing_images as $missing_id => $missing_data) {
-                $missing_url = is_array($missing_data) ? ($missing_data['url'] ?? '') : '';
+            foreach ($missing_images as $id => $missing_data) {
+                $file_url = is_array($missing_data) ? ($missing_data['url'] ?? '') : '';
                 
-                if (empty($missing_url)) {
+                if (empty($file_url)) {
                     continue;
                 }
                 
                 // Extract filename from URL
-                $missing_filename = basename(parse_url($missing_url, PHP_URL_PATH));
+                $missing_filename = basename(parse_url($file_url, PHP_URL_PATH));
                 $missing_basename = $this->get_base_filename($missing_filename);
                 
-                error_log("  🔎 Missing ID #{$missing_id}: basename={$missing_basename}");
+                error_log("  🔎 Missing ID #{$id}: basename={$missing_basename}");
                 
                 // Find matching valid image by basename
                 foreach ($valid_images as $valid_id) {
@@ -149,12 +149,12 @@ class PIM_Duplicate_Handler {
                         }
                         
                         $duplicates[$valid_id][] = array(
-                            'missing_id' => $missing_id,
-                            'missing_url' => $missing_url,
+                            'id' => $id,
+                            'file_url' => $file_url,
                             'source' => 'missing_in_database'
                         );
                         
-                        error_log("  ✅ FOUND DUPLICATE: Missing ID #{$missing_id} matches existing #{$valid_id}");
+                        error_log("  ✅ FOUND DUPLICATE: Missing ID #{$id} matches existing #{$valid_id}");
                         $total_duplicates++;
                         break;
                     }
@@ -412,7 +412,7 @@ class PIM_Duplicate_Handler {
         
         foreach ($duplicates[$image_id] as $duplicate) {
             $info['sources'][] = $duplicate['source'];
-            $info['ids'][] = $duplicate['missing_id'];
+            $info['ids'][] = $duplicate['id'];
         }
         
         $info['sources'] = array_unique($info['sources']);

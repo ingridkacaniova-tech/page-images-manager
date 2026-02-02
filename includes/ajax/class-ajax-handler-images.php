@@ -3,7 +3,7 @@
  * AJAX Handler - Images
  * Handles image listing, regeneration, and deletion
  * 
- * ✅ NEW: get_single_image_row endpoint for efficient updates
+ * ✅ NEW: get_single_image_row endpoint for efficient updates 
  */
 
 if (!defined('ABSPATH')) exit;
@@ -32,6 +32,7 @@ class PIM_Ajax_Handler_Images {
         add_action('wp_ajax_get_image_actions', array($this, 'get_image_actions'));
     }
 
+
     /**
      * Load page images from saved data
      */
@@ -44,99 +45,67 @@ class PIM_Ajax_Handler_Images {
         error_log("\n📋 === GET_PAGE_IMAGES CALLED ===");
         error_log("📞 CALL STACK:");
         foreach ($bt as $i => $trace) {
-            $func = isset($trace['function']) ? $trace['function'] : 'unknown';
-            $class = isset($trace['class']) ? $trace['class'] . '::' : '';
-            $file = isset($trace['file']) ? basename($trace['file']) : 'unknown';
-            $line = isset($trace['line']) ? $trace['line'] : '?';
+            $func  = isset($trace['function']) ? $trace['function'] : 'unknown';
+            $class = isset($trace['class'])    ? $trace['class'] . '::' : '';
+            $file  = isset($trace['file'])     ? basename($trace['file']) : 'unknown';
+            $line  = isset($trace['line'])     ? $trace['line'] : '?';
             error_log("   #{$i} {$class}{$func}() in {$file}:{$line}");
         }
-        
+
         check_ajax_referer('page_images_manager', 'nonce');
-        
+
         $page_id = isset($_POST['page_id']) ? intval($_POST['page_id']) : 0;
-        
+
         if (!$page_id) {
             wp_send_json_error(__('Invalid page ID', 'page-images-manager'));
         }
 
+        // ✅ Load data from extractor (cache-based structure)
         $data = $this->extractor->load_images_from_saved_data($page_id);
 
-        // Add to class-ajax-handler-images.php after line 62
-        global $wpdb;
-        $check = $wpdb->get_row("SELECT * FROM {$wpdb->postmeta} WHERE meta_key = '_pim_scan_data'");
-        error_log("🔍 SQL CHECK: " . ($check ? "FOUND (post_id={$check->post_id})" : "NOT FOUND"));
-        if ($check) {
-            $data = maybe_unserialize($check->meta_value);
-            error_log("Orphaned files in DB: " . count($data['orphaned_files'] ?? array()));
-        }
-
-        // DEBUG: Check what's in _pim_scan_data
-        $scan_data = get_post_meta(0, '_pim_scan_data', true);
-                    error_log("Orphaned files count: " . count($scan_data['orphaned_files'] ?? array()));
-        error_log("🔍 SCAN DATA CHECK:");
-        error_log("Scan data exists: " . (is_array($scan_data) ? 'YES' : 'NO'));
-        if (is_array($scan_data)) {
-            error_log("Scan data keys: " . print_r(array_keys($scan_data), true));
-            error_log("Orphaned files count: " . count($scan_data['orphaned_files'] ?? array()));
-            if (!empty($scan_data['orphaned_files'])) {
-                error_log("First orphaned file: " . print_r($scan_data['orphaned_files'][0], true));
-            }
-        }
-
-        global $wpdb;
-
-// Check _pim_scan_data
-$scan_data_check = $wpdb->get_row("SELECT * FROM {$wpdb->postmeta} WHERE meta_key = '_pim_scan_data'");
-error_log("🔍 CHECK _pim_scan_data: " . ($scan_data_check ? "EXISTS" : "NOT FOUND"));
-
-// Check _pim_page_usage (all records)
-$page_usage_check = $wpdb->get_results("SELECT post_id, meta_key FROM {$wpdb->postmeta} WHERE meta_key = '_pim_page_usage' LIMIT 5");
-error_log("🔍 CHECK _pim_page_usage: " . count($page_usage_check) . " records found");
-
-// Check if orphaned files might be in page_usage somehow
-if ($page_usage_check) {
-    foreach ($page_usage_check as $row) {
-        $data = maybe_unserialize(get_post_meta($row->post_id, '_pim_page_usage', true));
-        if (isset($data['orphaned_files'])) {
-            error_log("✅ FOUND orphaned_files in _pim_page_usage for post_id=" . $row->post_id);
-            error_log("Count: " . count($data['orphaned_files']));
-            break;
-        }
-    }
-}
-
+        // Handle logical errors (no scan data, etc.)
         if (isset($data['error'])) {
             wp_send_json_error(array(
-                'message' => $data['message'],
-                'error_code' => $data['error']
+                'message'    => $data['message'],
+                'error_code' => $data['error'],
             ));
         }
-        
+
+        // Handle WP_Error from extractor
         if (is_wp_error($data)) {
             wp_send_json_error($data->get_error_message());
         }
 
+        // ✅ Generate full HTML for sections
         $html = $this->renderer->generate_html($data);
 
         // ✅ Calculate count for THIS PAGE ONLY (not global scan count)
         $page_count = 0;
         if (isset($data['page_usage_data'][$page_id])) {
-            $page_data = $data['page_usage_data'][$page_id];
-            $page_count = count($page_data['existing_images'] ?? []) 
-                        + count($page_data['missing_in_files'] ?? []) 
-                        + count($page_data['missing_in_database'] ?? []);
+            $page_data  = $data['page_usage_data'][$page_id];
+            $existing   = isset($page_data['existing_images'])       && is_array($page_data['existing_images'])
+                        ? count($page_data['existing_images'])
+                        : 0;
+            $missing_fs = isset($page_data['missing_in_files'])      && is_array($page_data['missing_in_files'])
+                        ? count($page_data['missing_in_files'])
+                        : 0;
+            $missing_db = isset($page_data['missing_in_database'])   && is_array($page_data['missing_in_database'])
+                        ? count($page_data['missing_in_database'])
+                        : 0;
+
+            $page_count = $existing + $missing_fs + $missing_db;
         }
-        
+
         error_log("📊 AJAX Response: Page #{$page_id} has {$page_count} images");
 
         wp_send_json_success(array(
-            'html' => $html,
-            'count' => $page_count,
-            'orphaned_files' => $data['orphaned_files'] ?? array(),
-            'duplicates' => $data['duplicates'] ?? array(),
-            'scan_summary' => $data['scan_summary'] ?? array()
-             ));
-        }
+            'html'          => $html,
+            'count'         => $page_count,
+            'orphaned_files'=> isset($data['orphaned_files']) ? $data['orphaned_files'] : array(),
+            'duplicates'    => isset($data['duplicates'])     ? $data['duplicates']     : array(),
+            'scan_summary'  => isset($data['scan_summary'])   ? $data['scan_summary']   : array(),
+        ));
+    }
 
     /**
      * ✅ NEW: Get single image row (for efficient updates after actions)

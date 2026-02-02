@@ -232,10 +232,10 @@ class PIM_Ajax_Handler_Misc {
         if (!file_exists($file_path)) {
             PIM_Debug_Logger::warning('Exact file does not exist - checking for orphans');
             
-            $filename = basename($file_path);
-            $base_name = $this->get_base_filename($filename);
+            $file_name = basename($file_path);
+            $base_name = $this->get_base_filename($file_name);
             $dir = dirname($file_path);
-            $extension = pathinfo($filename, PATHINFO_EXTENSION);
+            $extension = pathinfo($file_name, PATHINFO_EXTENSION);
             
             // Find all files with same base name
             $pattern = $dir . '/' . $base_name . '*.' . $extension;
@@ -310,10 +310,10 @@ class PIM_Ajax_Handler_Misc {
         // ✅✅✅ SCENARIO 2A: FILE EXISTS ✅✅✅
         PIM_Debug_Logger::success('File exists on server - SCENARIO 2A');
         
-        $filename = basename($file_path);
+        $file_name = basename($file_path);
         
         // Check for consolidation...
-        $base_name = $this->get_base_filename($filename);
+        $base_name = $this->get_base_filename($file_name);
         $existing_attachment = $this->find_attachment_by_base_name($base_name);
         
         if ($existing_attachment) {
@@ -327,7 +327,7 @@ class PIM_Ajax_Handler_Misc {
             $result = $this->add_thumbnail_to_existing_attachment(
                 $attachment_id, 
                 $file_path,
-                $filename,
+                $file_name,
                 $image_url,
                 $page_id
             );
@@ -370,9 +370,9 @@ class PIM_Ajax_Handler_Misc {
     /**
      * ✅ Extract base filename (remove dimensions, -scaled, etc.)
      */
-    private function get_base_filename($filename) {
+    private function get_base_filename($file_name) {
         // Remove extension
-        $name = preg_replace('/\.(jpg|jpeg|png|gif|webp)$/i', '', $filename);
+        $name = preg_replace('/\.(jpg|jpeg|png|gif|webp)$/i', '', $file_name);
         
         // Remove -scaled
         $name = preg_replace('/-scaled$/', '', $name);
@@ -409,10 +409,10 @@ class PIM_Ajax_Handler_Misc {
     /**
      * ✅ Add thumbnail to existing attachment (CONSOLIDATION)
      */
-    private function add_thumbnail_to_existing_attachment($attachment_id, $file_path, $filename, $image_url, $page_id) {
+    private function add_thumbnail_to_existing_attachment($attachment_id, $file_path, $file_name, $image_url, $page_id) {
         PIM_Debug_Logger::enter('add_thumbnail_to_existing_attachment', array(
             'attachment_id' => $attachment_id,
-            'file' => $filename
+            'file' => $file_name
         ));
         
         // Get current metadata
@@ -452,7 +452,7 @@ class PIM_Ajax_Handler_Misc {
         
         // Add to metadata
         $metadata['sizes'][$size_name] = array(
-            'file' => $filename,
+            'file' => $file_name,
             'width' => $width,
             'height' => $height,
             'mime-type' => $image_size['mime']
@@ -536,12 +536,12 @@ class PIM_Ajax_Handler_Misc {
         require_once(ABSPATH . 'wp-admin/includes/image.php');
         require_once(ABSPATH . 'wp-admin/includes/file.php');
         
-        $filename = basename($file_path);
-        $filetype = wp_check_filetype($filename, null);
+        $file_name = basename($file_path);
+        $filetype = wp_check_filetype($file_name, null);
         
         $attachment = array(
             'post_mime_type' => $filetype['type'],
-            'post_title' => sanitize_file_name(pathinfo($filename, PATHINFO_FILENAME)),
+            'post_title' => sanitize_file_name(pathinfo($file_name, PATHINFO_FILENAME)),
             'post_content' => '',
             'post_status' => 'inherit',
             'post_parent' => $page_id
@@ -1122,14 +1122,14 @@ class PIM_Ajax_Handler_Misc {
     private function is_file_in_use($file_path) {
         global $wpdb;
         
-        $filename = basename($file_path);
+        $file_name = basename($file_path);
         
         // Check main files
         $query = $wpdb->prepare("
             SELECT COUNT(*) FROM {$wpdb->postmeta}
             WHERE meta_key = '_wp_attached_file'
             AND meta_value LIKE %s
-        ", '%' . $wpdb->esc_like($filename) . '%');
+        ", '%' . $wpdb->esc_like($file_name) . '%');
         
         $main_file_count = $wpdb->get_var($query);
         
@@ -1142,7 +1142,7 @@ class PIM_Ajax_Handler_Misc {
             SELECT meta_value FROM {$wpdb->postmeta}
             WHERE meta_key = '_wp_attachment_metadata'
             AND meta_value LIKE %s
-        ", '%' . $wpdb->esc_like($filename) . '%');
+        ", '%' . $wpdb->esc_like($file_name) . '%');
         
         $metadata_entries = $wpdb->get_results($query);
         
@@ -1150,7 +1150,7 @@ class PIM_Ajax_Handler_Misc {
             $metadata = maybe_unserialize($entry->meta_value);
             if (isset($metadata['sizes']) && is_array($metadata['sizes'])) {
                 foreach ($metadata['sizes'] as $size_data) {
-                    if (isset($size_data['file']) && $size_data['file'] === $filename) {
+                    if (isset($size_data['file']) && $size_data['file'] === $file_name) {
                         return true;
                     }
                 }
@@ -1170,22 +1170,22 @@ class PIM_Ajax_Handler_Misc {
         ));
         
         // Extract filename from URL
-        $filename = basename(parse_url($image_url, PHP_URL_PATH));
-        $filetype = wp_check_filetype($filename, null);
+        $file_name = basename(parse_url($image_url, PHP_URL_PATH));
+        $filetype = wp_check_filetype($file_name, null);
         
         if (!$filetype['type']) {
             $filetype['type'] = 'image/jpeg';  // Default
         }
         
         PIM_Debug_Logger::log('Creating empty attachment', array(
-            'filename' => $filename,
+            'filename' => $file_name,
             'mime_type' => $filetype['type']
         ));
         
         // ✅ Create attachment WITHOUT file
         $attachment = array(
             'post_mime_type' => $filetype['type'],
-            'post_title' => sanitize_file_name(pathinfo($filename, PATHINFO_FILENAME)),
+            'post_title' => sanitize_file_name(pathinfo($file_name, PATHINFO_FILENAME)),
             'post_content' => '',
             'post_status' => 'inherit',
             'post_parent' => $page_id,
@@ -1321,54 +1321,44 @@ class PIM_Ajax_Handler_Misc {
 
     /**
      * ✅ Scan all pages and save to _pim_page_usage (FLAT STRUCTURE)
+     * FIXED VERSION - TRUE ORPHANS PATCH
      */
     public function collect_base_images_data_from_all_pages() {
         PIM_Debug_Logger::log_session_start('collect_base_images_data_from_all_pages');
-        
+
         error_log("\n🔄🔄🔄 === COLLECT BASE IMAGES DATA FROM ALL PAGES START === 🔄🔄🔄");
-        
+
         check_ajax_referer('page_images_manager', 'nonce');
-        
+
         $start_time = microtime(true);
-        
+
         $pages = get_posts([
-            'post_type' => 'page',
-            'post_status' => 'publish',
+            'post_type'      => 'page',
+            'post_status'    => 'publish',
             'posts_per_page' => -1,
-            'orderby' => 'ID',
-            'order' => 'ASC'
+            'orderby'        => 'ID',
+            'order'          => 'ASC',
         ]);
-        
+
         error_log("📊 Found " . count($pages) . " published pages to scan");
-        
+
         $total_images_processed = 0;
-        $total_uses_found = 0;
-        $all_scan_data = array();
-        $global_orphaned_files = array();
-        $global_duplicates = array();
-        $global_debug_info = array();
-        $total_count = 0;
-        
+        $total_uses_found       = 0;
+        $all_scan_data          = array();
+        $global_duplicates      = array();
+        $global_debug_info      = array();
+        $total_count            = 0;
+
         foreach ($pages as $page) {
             error_log("\n📄 === Scanning Page: {$page->post_title} (ID: {$page->ID}) ===");
-            
+
             $extractor = new PIM_Image_Extractor();
-            $data = $extractor->collect_base_data_from_page($page->ID);
-            
+            $data      = $extractor->collect_base_data_from_page($page->ID);
+
             $page_usage_data = $data['page_usage_data'][$page->ID] ?? array();
-            
+
             $all_scan_data[$page->ID] = $data;
 
-            error_log("📊 Som v collect_base_images_data_from_all_pages " . count($data['orphaned_files']) . " orphaned file");
-            
-            if (!empty($data['orphaned_files'])) {
-                error_log("📊 Som v collect_base_images_data_from_all_pages v if, takze orphaned_files NIE SU empty");
-                $global_orphaned_files = array_merge($global_orphaned_files, $data['orphaned_files']);
-            }
-            else{
-                error_log("📊 Som v collect_base_images_data_from_all_pages v if, takze orphaned_files SU empty");
-            }
-            
             if (!empty($data['duplicates'])) {
                 foreach ($data['duplicates'] as $primary_id => $dups) {
                     if (!isset($global_duplicates[$primary_id])) {
@@ -1377,15 +1367,15 @@ class PIM_Ajax_Handler_Misc {
                     $global_duplicates[$primary_id] = array_merge($global_duplicates[$primary_id], $dups);
                 }
             }
-            
+
             if (!empty($data['scan_summary'])) {
                 $total_count += $data['scan_summary']['count'] ?? 0;
-                
+
                 foreach ($data['scan_summary'] as $key => $value) {
                     if ($key === 'count') {
                         continue;
                     }
-                    
+
                     if ($key === 'widgets_found' && is_array($value)) {
                         if (!isset($global_debug_info['widgets_found'])) {
                             $global_debug_info['widgets_found'] = array();
@@ -1398,12 +1388,12 @@ class PIM_Ajax_Handler_Misc {
                     }
                 }
             }
-            
+
             if (empty($page_usage_data)) {
                 error_log("  ℹ️ No images found on this page");
                 continue;
             }
-            
+
             $this->process_and_save_images(
                 $page->ID,
                 $page_usage_data['existing_images'] ?? array(),
@@ -1411,7 +1401,7 @@ class PIM_Ajax_Handler_Misc {
                 $total_images_processed,
                 $total_uses_found
             );
-            
+
             $this->process_and_save_images(
                 $page->ID,
                 $page_usage_data['missing_in_files'] ?? array(),
@@ -1419,7 +1409,7 @@ class PIM_Ajax_Handler_Misc {
                 $total_images_processed,
                 $total_uses_found
             );
-            
+
             $this->process_and_save_images(
                 $page->ID,
                 $page_usage_data['missing_in_database'] ?? array(),
@@ -1428,83 +1418,156 @@ class PIM_Ajax_Handler_Misc {
                 $total_uses_found
             );
         }
-        
-        error_log("📊 Som v collect_base_images_data_from_all_pages pri update_post_meta, ma ist ukladat data duplicates " . count($data['duplicates']));
-        error_log("📊 Som v collect_base_images_data_from_all_pages pri update_post_meta, ma ist ukladat global data duplicates " . count($global_duplicates));
 
-        error_log("📊 Som v collect_base_images_data_from_all_pages pri update_post_meta, ma ist ukladat data Orphaned files " . count($data['orphaned_files']));
-        error_log("📊 Som v collect_base_images_data_from_all_pages pri update_post_meta, ma ist ukladat global Orphaned files " . count($global_orphaned_files));
+        // ✅ TRUE ORPHANS: files on disk whose BASE_FILENAME is NOT used on any page
+        $upload_dir  = wp_upload_dir();
+        $upload_base = trailingslashit($upload_dir['basedir']);
+        error_log('🔍 ORPHANS base: ' . $upload_base);
+        error_log('🔍 ORPHANS basedir: ' . $upload_dir['basedir']);
 
+        $true_orphans             = array();
+        $all_used_base_filenames  = array();
 
-        update_post_meta(PIM_Image_Extractor::GLOBAL_SCAN_POST_ID, '_pim_scan_data', array(
-            'orphaned_files' => $global_orphaned_files,
-            'duplicates' => $global_duplicates
-        ));
-        error_log("💾 Saved global scan data (global_orphaned_files + global_duplicates) to wp_postmeta(0)");
-        
+        // 1) Collect ALL used base_filenames from pages
+        foreach ($all_scan_data as $page_id => $page_data) {
+            error_log('🔍 som v Foreach cykle s all_scan_data');
+            if (empty($page_data['page_usage_data'][$page_id])) {
+                continue;
+            }
+            $page_usage = $page_data['page_usage_data'][$page_id];
+
+            foreach (array('existing_images', 'missing_in_files', 'missing_in_database') as $cat) {
+                error_log('🔍 som v Foreach cykle s existing, mis files, mis dtb ');
+
+                if (!empty($page_usage[$cat]) && is_array($page_usage[$cat])) {
+                    foreach ($page_usage[$cat] as $img) {
+                        error_log('🔍 som v cykle file_url: ' . $img['file_url']);
+
+                        if (!empty($img['file_url'])) {
+                            // Zbieranie used
+                            $base = $this->get_base_filename(basename($img['file_url']));
+                            $all_used_base_filenames[$base] = true;
+                        }
+                    }
+                }
+            }
+        }
+        error_log('🔍 deklarujem iterator new RecursiveIteratorIterator(...');
+
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($upload_base, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::LEAVES_ONLY
+        );
+
+        $allowed_exts = array('jpg','jpeg','png','webp','gif');  // len obrázky
+        foreach ($iterator as $file) {
+            /** @var SplFileInfo $file */
+            if (!$file->isFile()) continue;
+
+            $full_path = $file->getPathname();
+
+            // ✅ iba year folders (2024/01/, 2025/02/...)
+            $parent_dir = dirname($full_path);
+            if (!preg_match('/\/(\d{4})\//', $parent_dir)) {
+                continue;
+            }
+
+            $file_name = $file->getFilename();
+            $ext       = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+
+            // Skip ne‑obrázky (json, css, log, fonty, atď.)
+            if (!in_array($ext, $allowed_exts, true)) {
+                continue;
+            }
+
+            // Skip caches, system artefacts    
+            if (strpos($full_path, '/cache/') !== false ||
+                strpos($full_path, '/thumbs/') !== false ||
+                strpos($file_name, '.DS_Store') !== false ||
+                strpos($file_name, '~') !== false) {
+                continue;
+            }
+
+            // Sken súborov  
+            $base_filename = $this->get_base_filename(basename($file_name));
+            error_log('base_filename: ' . $base_filename);
+
+            // TRUE ORPHAN: basename not used in any page_usage_data    
+            if (!isset($all_used_base_filenames[$base_filename])) {
+                error_log('som vo vnutri if, kde vyrabam atributy .. base_filename: ' . $base_filename);
+
+                $true_orphans[] = array(
+                    'id'         => md5($full_path),
+                    'size_name' => '',         
+                    'elementor_id' => '',       
+                    'source' => '',
+                    'file_url' => $full_path,    
+                    'file_size' => $file->getSize()
+                );
+            }
+        }
+
+        error_log('TRUE ORPHANS: ' . count($true_orphans) . ' files not used on any page');
+
         $duration = round((microtime(true) - $start_time), 2);
-        
+
         error_log("\n📊 === SCAN SUMMARY ===");
-        error_log("  Pages scanned: " . count($pages));
-        error_log("  Images processed: {$total_images_processed}");
-        error_log("  Total uses found: {$total_uses_found}");
-        error_log("  Duration: {$duration} seconds");
-        
+        error_log('  Pages scanned: ' . count($pages));
+        error_log('  Images processed: ' . $total_images_processed);
+        error_log('  Total uses found: ' . $total_uses_found);
+        error_log('  Duration: ' . $duration . ' seconds');
+
         $scan_summary = array_merge(
             array(
-                'timestamp' => current_time('mysql'),
-                'duration' => $duration,
-                'total_pages' => count($pages),
+                'timestamp'    => current_time('mysql'),
+                'duration'     => $duration,
+                'total_pages'  => count($pages),
                 'total_images' => $total_images_processed,
-                'total_uses' => $total_uses_found,
-                'user' => wp_get_current_user()->display_name
+                'total_uses'   => $total_uses_found,
+                'user'         => wp_get_current_user()->display_name,
             ),
             $global_debug_info,
             array('count' => $total_count)
         );
-        
+
         update_option('pim_last_scan', $scan_summary);
-        
-        $this->save_scan_to_file($all_scan_data, $global_orphaned_files, $global_duplicates, $scan_summary);
-        
-        error_log("✅ Saved scan info to wp_options");
+
+        error_log('count of global_duplicates: ' . count($global_duplicates));
+
+
+        // PO orphans/duplicates logoch + $all_scan_data naplnené
+        $scan_data = array(
+            'orphaned_files'   => $true_orphans,
+            'duplicates' => $global_duplicates,  // ✅ GLOBAL
+            'scan_summary'     => $scan_summary,
+            'page_usage_data'  => $all_scan_data
+        );
+
+        update_post_meta(
+            PIM_Image_Extractor::GLOBAL_SCAN_POST_ID, 
+            '_pim_scan_data', 
+            $scan_data 
+        );
+
+        error_log('✅ Saved scan info to wp_options & file');
         error_log("🔄🔄🔄 === COLLECT BASE IMAGES DATA FROM ALL PAGES END === 🔄🔄🔄\n");
-        
-        global $wpdb;
 
-        // Check _pim_scan_data
-        $scan_data_check = $wpdb->get_row("SELECT * FROM {$wpdb->postmeta} WHERE meta_key = '_pim_scan_data'");
-        error_log("🔍 CHECK _pim_scan_data: " . ($scan_data_check ? "EXISTS" : "NOT FOUND"));
-
-        // Check _pim_page_usage (all records)
-        $page_usage_check = $wpdb->get_results("SELECT post_id, meta_key FROM {$wpdb->postmeta} WHERE meta_key = '_pim_page_usage' LIMIT 5");
-        error_log("🔍 CHECK _pim_page_usage: " . count($page_usage_check) . " records found");
-
-        // Check if orphaned files might be in page_usage somehow
-        if ($page_usage_check) {
-            foreach ($page_usage_check as $row) {
-                $data = maybe_unserialize(get_post_meta($row->post_id, '_pim_page_usage', true));
-                if (isset($data['orphaned_files'])) {
-                    error_log("✅ FOUND orphaned_files in _pim_page_usage for post_id=" . $row->post_id);
-                    error_log("Count: " . count($data['orphaned_files']));
-                    break;
-                }
-            }
-        }
-
-        wp_send_json_success(array(
-            'message' => sprintf(
-                "Scanned %d pages, processed %d images (%d uses)",
-                count($pages),
-                $total_images_processed,
-                $total_uses_found
-            ),
-            'duration' => $duration,
-            'total_pages' => count($pages),
-            'total_images' => $total_images_processed,
-            'total_uses' => $total_uses_found
-        ));
+        wp_send_json_success(
+            array(
+                'message'      => sprintf(
+                    'Scanned %d pages, processed %d images (%d uses)',
+                    count($pages),
+                    $total_images_processed,
+                    $total_uses_found
+                ),
+                'duration'     => $duration,
+                'total_pages'  => count($pages),
+                'total_images' => $total_images_processed,
+                'total_uses'   => $total_uses_found,
+            )
+        );
     }
+
     
     private function save_scan_to_file($all_scan_data, $global_orphaned_files, $global_duplicates, $scan_summary) {
         $upload_dir = wp_upload_dir();
@@ -1602,7 +1665,7 @@ class PIM_Ajax_Handler_Misc {
         foreach ($results as $row) {
             $image_id = $row->post_id;
             $page_usage = maybe_unserialize($row->meta_value);
-            $filename = basename(get_attached_file($image_id));
+            $file_name = basename(get_attached_file($image_id));
             
             foreach ($page_usage as $page_id => $sizes) {
                 $page = get_post($page_id);
@@ -1611,7 +1674,7 @@ class PIM_Ajax_Handler_Misc {
                 foreach ($sizes as $size_name => $data) {
                     $csv_data[] = array(
                         $image_id,
-                        $filename,
+                        $file_name,
                         $page_id,
                         $page_title,
                         $size_name,
@@ -1624,9 +1687,9 @@ class PIM_Ajax_Handler_Misc {
         }
         
         // Generate CSV
-        $filename = 'pim-image-usage-' . date('Y-m-d-His') . '.csv';
+        $file_name = 'pim-image-usage-' . date('Y-m-d-His') . '.csv';
         $upload_dir = wp_upload_dir();
-        $filepath = $upload_dir['basedir'] . '/' . $filename;
+        $filepath = $upload_dir['basedir'] . '/' . $file_name;
         
         $fp = fopen($filepath, 'w');
         foreach ($csv_data as $row) {
@@ -1635,8 +1698,8 @@ class PIM_Ajax_Handler_Misc {
         fclose($fp);
         
         wp_send_json_success(array(
-            'download_url' => $upload_dir['baseurl'] . '/' . $filename,
-            'filename' => $filename,
+            'download_url' => $upload_dir['baseurl'] . '/' . $file_name,
+            'filename' => $file_name,
             'total_rows' => count($csv_data) - 1
         ));
     }
@@ -1990,15 +2053,17 @@ class PIM_Ajax_Handler_Misc {
         
         // ✅ Save to uploads folder
         $upload_dir = wp_upload_dir();
-        $filename = 'elementor-page-' . $page_id . '-' . sanitize_title($page->post_title) . '.json';
-        $file_path = $upload_dir['basedir'] . '/' . $filename;
+        $page_title = get_the_title($page_id);
+        $timestamp = current_time('Y-m-d-H-i-s'); 
+        $file_name = "elementor-page-{$page_id}-{$page_title}-{$timestamp}.json";
+        $file_path = $upload_dir['basedir'] . '/' . $file_name;
         
         if (file_put_contents($file_path, $elementor_data)) {
             error_log("✅ RAW Elementor JSON saved to: {$file_path}");
             
             wp_send_json_success(array(
-                'download_url' => $upload_dir['baseurl'] . '/' . $filename,
-                'filename' => $filename,
+                'download_url' => $upload_dir['baseurl'] . '/' . $file_name,
+                'filename' => $file_name,
                 'page_title' => $page->post_title,
                 'page_id' => $page_id
             ));
@@ -2098,8 +2163,8 @@ class PIM_Ajax_Handler_Misc {
         
         // 5️⃣ Ulož do súboru
         $upload_dir = wp_upload_dir();
-        $filename = 'collected-data-from-cache-' . date('Y-m-d-H-i-s') . '.json';
-        $file_path = $upload_dir['basedir'] . '/' . $filename;
+        $file_name = 'collected-data-from-cache-' . date('Y-m-d-H-i-s') . '.json';
+        $file_path = $upload_dir['basedir'] . '/' . $file_name;
         
         $json_data = json_encode($final_structure, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         
@@ -2107,8 +2172,8 @@ class PIM_Ajax_Handler_Misc {
             error_log("✅ Cache data saved to: {$file_path}");
             
             wp_send_json_success(array(
-                'download_url' => $upload_dir['baseurl'] . '/' . $filename,
-                'filename' => $filename,
+                'download_url' => $upload_dir['baseurl'] . '/' . $file_name,
+                'filename' => $file_name,
                 'total_pages' => count($page_usage_data),
                 'total_orphaned_files' => count($orphaned_files),
                 'total_duplicates' => count($duplicates)
@@ -2236,8 +2301,8 @@ class PIM_Ajax_Handler_Misc {
         
         // 5️⃣ Ulož do súboru
         $upload_dir = wp_upload_dir();
-        $filename = 'collected-data-from-database-' . date('Y-m-d-H-i-s') . '.json';
-        $file_path = $upload_dir['basedir'] . '/' . $filename;
+        $file_name = 'collected-data-from-database-' . date('Y-m-d-H-i-s') . '.json';
+        $file_path = $upload_dir['basedir'] . '/' . $file_name;
         
         $json_data = json_encode($final_structure, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         
@@ -2246,8 +2311,8 @@ class PIM_Ajax_Handler_Misc {
             error_log("⏱️ Export duration: {$duration}s");
             
             wp_send_json_success(array(
-                'download_url' => $upload_dir['baseurl'] . '/' . $filename,
-                'filename' => $filename,
+                'download_url' => $upload_dir['baseurl'] . '/' . $file_name,
+                'file_name' => $file_name,
                 'total_pages' => count($page_usage_data),
                 'total_orphaned_files' => count($orphaned_files),
                 'total_duplicates' => count($duplicates),

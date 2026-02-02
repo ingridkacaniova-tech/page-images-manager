@@ -19,13 +19,15 @@ class PIM_Image_Renderer {
     }
 
     /**
-     * Generate complete HTML output
+     * Generate complete HTML output 
      */
     public function generate_html($data) {
         $page_usage_data = $data['page_usage_data'] ?? array();
         $orphaned_files = $data['orphaned_files'] ?? array();
         $duplicates = $data['duplicates'] ?? array();
         $debug_info = $data['debug_info'] ?? array();
+        
+        error_log("🎨 RENDERER DEBUG: orphaned_files count = " . count($orphaned_files) . " | type = " . gettype($orphaned_files) . " | first = " . (empty($orphaned_files) ? 'empty' : print_r($orphaned_files[0], true)));
         
         $page_id = !empty($page_usage_data) ? key($page_usage_data) : 0;
         $page_data = $page_usage_data[$page_id] ?? array();

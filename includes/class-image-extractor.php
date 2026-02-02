@@ -2,7 +2,7 @@
 /**
  * Image Extractor Class
  * Handles extraction of images from various sources
- * NO HTML RENDERING - only data extraction 
+ * NO HTML RENDERING - only data extraction   
  */
 
 if (!defined('ABSPATH')) {
@@ -133,10 +133,24 @@ class PIM_Image_Extractor {
             : array();
         
         $orphan_files = isset($scan_data['orphaned_files']) && is_array($scan_data['orphaned_files']) 
-            ? $scan_data['orphaned_files'] 
-            : array();
-        
-        error_log("📋 Loaded from global scan data (1 query): " . count($duplicates) . " duplicates, " . count($orphan_files) . " orphaned files");
+        ? $scan_data['orphaned_files'] 
+        : array();
+
+        // ✅ FIX ORPHANED PATHS: prema puj local paths na web URLs pre renderer
+        $upload_dir = wp_upload_dir();
+        $base_dir = trailingslashit($upload_dir['basedir']);
+        $base_url = trailingslashit($upload_dir['baseurl']);
+
+        foreach ($orphan_files as &$orphan) {
+            if (!empty($orphan['file_url']) && strpos($orphan['file_url'], $base_dir) === 0) {
+                $relative = substr($orphan['file_url'], strlen($base_dir));
+                $orphan['file_url'] = $base_url . ltrim($relative, '/');
+            }
+        }
+        unset($orphan);
+
+        error_log("📋 Loaded from global scan data (1 query): " . count($duplicates) . " duplicates, " . count($orphan_files) . " orphaned files (paths fixed)");
+
         
         // ✅ REMOVED: supplemental sources loading (will be fetched ON-DEMAND in UI)
         // Supplemental sources are NOT needed for "Load Images" - only for detail modals
@@ -166,7 +180,7 @@ class PIM_Image_Extractor {
             'page_usage_data' => array(
                 $page_id => $page_usage_structure['page_data']
             ),
-            'orphaned_files' => $page_usage_structure['orphaned_files'],
+            'orphaned_files' => $orphan_files,
             'duplicates' => $duplicates,
             'scan_summary' => array_merge(
                 $debug_info,
@@ -287,62 +301,102 @@ class PIM_Image_Extractor {
         
         error_log("📋 Processing " . count($valid_images) . " existing images");
         foreach ($valid_images as $image_id) {
+            // DEBUG: Guard against non-integer IDs
+            if (!is_int($image_id) && !is_numeric($image_id)) {
+                error_log("❌ existing_images loop: image_id is not numeric - type: " . gettype($image_id) . ", value: " . print_r($image_id, true));
+                continue;
+            }
+            
+            $image_id = intval($image_id);
+            
             if (!isset($this->image_details[$image_id])) {
                 error_log("⚠️ Image #{$image_id} has no details, skipping");
                 continue;
             }
             
+            // DEBUG: Check if image_details is array
+            if (!is_array($this->image_details[$image_id])) {
+                error_log("❌ Image #{$image_id}: image_details is not array - type: " . gettype($this->image_details[$image_id]));
+                continue;
+            }
+            
             foreach ($this->image_details[$image_id] as $use) {
+                // DEBUG: Guard each use entry
+                if (!is_array($use)) {
+                    error_log("❌ Image #{$image_id}: use entry is not array - type: " . gettype($use));
+                    continue;
+                }
+                
                 $page_data['existing_images'][] = array(
                     'id' => $image_id,
-                    'size_name' => $use['size_name'] ?? '',
-                    'elementor_id' => $use['elementor_id'] ?? '',
-                    'source' => $use['source'] ?? '',
-                    'file_url' => $use['file_url'] ?? ''
+                    'size_name' => isset($use['size_name']) ? $use['size_name'] : '',
+                    'elementor_id' => isset($use['elementor_id']) ? $use['elementor_id'] : '',
+                    'source' => isset($use['source']) ? $use['source'] : '',
+                    'file_url' => isset($use['file_url']) ? $use['file_url'] : ''
                 );
             }
         }
+        error_log("✅ existing_images section built: " . count($page_data['existing_images']) . " entries");
+
         
         error_log("📋 Processing " . count($missing_files) . " missing files");
         foreach ($missing_files as $image_id) {
+            // DEBUG: Guard against non-integer IDs
+            if (!is_int($image_id) && !is_numeric($image_id)) {
+                error_log("❌ missing_files loop: image_id is not numeric - type: " . gettype($image_id) . ", value: " . print_r($image_id, true));
+                continue;
+            }
+            
+            $image_id = intval($image_id);
+            
             if (!isset($this->image_details[$image_id])) {
                 error_log("⚠️ Missing file #{$image_id} has no details, skipping");
                 continue;
             }
             
+            // DEBUG: Check if image_details is array
+            if (!is_array($this->image_details[$image_id])) {
+                error_log("❌ Missing file #{$image_id}: image_details is not array - type: " . gettype($this->image_details[$image_id]));
+                continue;
+            }
+            
             foreach ($this->image_details[$image_id] as $use) {
+                // DEBUG: Guard each use entry
+                if (!is_array($use)) {
+                    error_log("❌ Missing file #{$image_id}: use entry is not array - type: " . gettype($use));
+                    continue;
+                }
+                
                 $page_data['missing_in_files'][] = array(
                     'id' => $image_id,
-                    'size_name' => $use['size_name'] ?? '',
-                    'elementor_id' => $use['elementor_id'] ?? '',
-                    'source' => $use['source'] ?? '',
-                    'file_url' => $use['file_url'] ?? ''
+                    'size_name' => isset($use['size_name']) ? $use['size_name'] : '',
+                    'elementor_id' => isset($use['elementor_id']) ? $use['elementor_id'] : '',
+                    'source' => isset($use['source']) ? $use['source'] : '',
+                    'file_url' => isset($use['file_url']) ? $use['file_url'] : ''
                 );
             }
         }
+        error_log("✅ missing_in_files section built: " . count($page_data['missing_in_files']) . " entries");
+
         
         error_log("📋 Processing " . count($missing_image_ids) . " missing in database");
         foreach ($missing_image_ids as $missing_id => $missing_data) {
+            // DEBUG: Validate missing_data structure
+            if (!is_array($missing_data)) {
+                error_log("❌ missing_in_database: missing_data is not array for id {$missing_id} - type: " . gettype($missing_data));
+                continue;
+            }
+            
             $page_data['missing_in_database'][] = array(
                 'id' => $missing_id,
                 'size_name' => '',
-                'elementor_id' => $missing_data['elementor_id'] ?? '',
+                'elementor_id' => isset($missing_data['elementor_id']) ? $missing_data['elementor_id'] : '',
                 'source' => '',
-                'file_url' => $missing_data['url'] ?? ''
+                'file_url' => isset($missing_data['url']) ? $missing_data['url'] : ''
             );
         }
-        
-        error_log("📋 Processing " . count($orphan_files) . " orphaned files");
-       foreach ($orphan_files as $orphan) {
-           $orphaned_files[] = $orphan;
-       }
-        
-        error_log("🎉 Structure complete: " . 
-            count($page_data['existing_images']) . " existing, " .
-            count($page_data['missing_in_files']) . " missing files, " .
-            count($page_data['missing_in_database']) . " missing db, " .
-            count($orphaned_files) . " orphaned"
-        );
+        error_log("✅ missing_in_database section built: " . count($page_data['missing_in_database']) . " entries");
+
         
         return array(
             'page_data' => $page_data,
